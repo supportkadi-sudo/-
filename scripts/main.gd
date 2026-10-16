@@ -85,6 +85,10 @@ func _build_ui() -> void:
     ip_field.text = "127.0.0.1"
     ip_field.custom_minimum_size = Vector2(300,45)
     panel.add_child(ip_field)
+    var solo := Button.new()
+    solo.text = "Play solo (offline)"
+    solo.pressed.connect(_solo)
+    panel.add_child(solo)
     var host := Button.new()
     host.text = "Host LAN"
     host.pressed.connect(_host)
@@ -98,6 +102,12 @@ func _build_ui() -> void:
     action.position = Vector2(20,210)
     action.pressed.connect(_request_interact)
     canvas.add_child(action)
+
+func _solo() -> void:
+    if multiplayer.has_multiplayer_peer():
+        return
+    _spawn(1)
+    status_label.text = "Solo test | WASD / touch"
 
 func _host() -> void:
     var peer := ENetMultiplayerPeer.new()
@@ -218,6 +228,8 @@ func state_remote(id: int, pos: Vector3, yaw: float, pitch: float) -> void:
 
 func _request_interact() -> void:
     if not multiplayer.has_multiplayer_peer():
+        if players.has(1):
+            _interact(1)
         return
     if multiplayer.is_server():
         _interact(1)
@@ -249,7 +261,7 @@ func prop_state(pos: Vector3, vel: Vector3, holder: int) -> void:
     prop.linear_velocity = vel
 
 func _physics_process(_delta: float) -> void:
-    if multiplayer.is_server() and carried_by != 0 and players.has(carried_by):
+    if (multiplayer.is_server() or not multiplayer.has_multiplayer_peer()) and carried_by != 0 and players.has(carried_by):
         var player: HookahPlayer = players[carried_by]
         prop.global_position = player.global_position + Vector3.UP * 1.25 - player.global_transform.basis.z * 0.9
 
