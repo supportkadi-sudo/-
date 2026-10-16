@@ -11,6 +11,8 @@ var carried_by := 0
 var elapsed := 0.0
 var touch_move_id := -1
 var touch_origin := Vector2.ZERO
+var move_hint: Label
+var lobby_panel: VBoxContainer
 
 func _ready() -> void:
     _setup_input()
@@ -86,6 +88,7 @@ func _build_ui() -> void:
     var canvas := CanvasLayer.new()
     add_child(canvas)
     var panel := VBoxContainer.new()
+    lobby_panel = panel
     panel.position = Vector2(20,20)
     canvas.add_child(panel)
     status_label = Label.new()
@@ -110,13 +113,28 @@ func _build_ui() -> void:
     var action := Button.new()
     action.text = "Pick / Throw"
     action.position = Vector2(20,210)
+    if OS.has_feature("mobile"):
+        action.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+        action.position = Vector2(-210,-105)
+        action.custom_minimum_size = Vector2(190,75)
     action.pressed.connect(_request_interact)
     canvas.add_child(action)
+    move_hint = Label.new()
+    move_hint.text = "Drag left side to move | drag right side to look"
+    move_hint.position = Vector2(20, 320)
+    move_hint.visible = OS.has_feature("mobile")
+    canvas.add_child(move_hint)
+
+func _begin_play() -> void:
+    lobby_panel.visible = false
+    ip_field.release_focus()
+    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
 
 func _solo() -> void:
     if multiplayer.has_multiplayer_peer():
         return
     _spawn(1)
+    _begin_play()
     status_label.text = "Solo test | WASD / touch"
 
 func _host() -> void:
@@ -127,6 +145,7 @@ func _host() -> void:
         return
     multiplayer.multiplayer_peer = peer
     _spawn(1)
+    _begin_play()
     status_label.text = "Hosting LAN UDP %d" % PORT
 
 func _join() -> void:
@@ -141,6 +160,7 @@ func _join() -> void:
 func _on_connected() -> void:
     status_label.text = "Connected"
     _spawn(multiplayer.get_unique_id())
+    _begin_play()
 
 func _on_connection_failed() -> void:
     status_label.text = "Connection failed"
@@ -151,6 +171,7 @@ func _on_disconnected() -> void:
         players[id].queue_free()
     players.clear()
     status_label.text = "Disconnected"
+    lobby_panel.visible = true
     multiplayer.multiplayer_peer = null
 
 func _on_peer_connected(id: int) -> void:
