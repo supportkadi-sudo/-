@@ -18,7 +18,7 @@ func _capture() -> void:
         push_error("Main scene was not loaded")
         quit(1)
         return
-    main._solo()
+    main.call("_solo")
     for frame in range(20):
         await process_frame
     await RenderingServer.frame_post_draw
