@@ -27,7 +27,7 @@ jobs:
         run: godot --headless --editor --path . --import --quit
       - name: Export unsigned production-free debug APK
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
