@@ -120,6 +120,7 @@ func _join() -> void:
 
 func _on_connected() -> void:
     status_label.text = "Connected"
+    _spawn(multiplayer.get_unique_id())
 
 func _on_connection_failed() -> void:
     status_label.text = "Connection failed"
@@ -139,6 +140,8 @@ func _on_peer_connected(id: int) -> void:
         spawn_remote.rpc_id(id, existing)
     spawn_remote.rpc(id)
     _spawn(id)
+    if prop != null:
+        prop_state.rpc_id(id, prop.global_position, prop.linear_velocity, carried_by)
 
 func _on_peer_disconnected(id: int) -> void:
     if multiplayer.is_server():
@@ -195,6 +198,8 @@ func submit_state(pos: Vector3, yaw: float, pitch: float) -> void:
     if not players.has(id):
         return
     var player: HookahPlayer = players[id]
+    if not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch):
+        return
     if pos.distance_to(player.global_position) > 3.0:
         return
     player.global_position = pos
