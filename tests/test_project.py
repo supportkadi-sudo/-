@@ -21,6 +21,18 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn("KEY_E", text)
         self.assertIn("_setup_input()", text)
 
+    def test_cloud_capture_and_android_export(self):
+        screenshot = (ROOT / "tests/capture.gd").read_text()
+        self.assertIn("SCREENSHOT_OK", screenshot)
+        self.assertIn("save_png", screenshot)
+        ci = (ROOT / ".github/workflows/smoke.yml").read_text()
+        self.assertIn("xvfb-run", ci)
+        self.assertIn("actions/upload-artifact@v4", ci)
+        android = (ROOT / ".github/workflows/android.yml").read_text()
+        self.assertIn("--export-debug Android", android)
+        self.assertIn("HookahBros-Android-debug", android)
+        self.assertIn('name="Android"', (ROOT / "export_presets.cfg").read_text())
+
     def test_server_checks(self):
         text = (ROOT / "scripts/main.gd").read_text()
         self.assertIn("multiplayer.get_remote_sender_id()", text)
