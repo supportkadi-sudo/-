@@ -151,8 +151,7 @@ func _on_peer_disconnected(id: int) -> void:
 func _spawn(id: int) -> void:
     if players.has(id):
         return
-    var player := CharacterBody3D.new()
-    player.set_script(PlayerScript)
+    var player: HookahPlayer = PlayerScript.new()
     player.name = "Player_%d" % id
     player.local_control = id == multiplayer.get_unique_id()
     player.position = Vector3((id % 4) * 1.2 - 2.0,0,3)
@@ -200,7 +199,7 @@ func submit_state(pos: Vector3, yaw: float, pitch: float) -> void:
     var player: HookahPlayer = players[id]
     if not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch):
         return
-    if pos.distance_to(player.global_position) > 3.0:
+    if pos.distance_to(player.global_position) > 3.0 or absf(pitch) > 1.35:
         return
     player.global_position = pos
     player.sync_target = pos
