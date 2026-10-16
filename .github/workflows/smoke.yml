@@ -1,7 +1,8 @@
-name: Structural tests
+name: Godot validation
 on:
   push:
   pull_request:
+  workflow_dispatch:
 jobs:
   smoke:
     runs-on: ubuntu-latest
@@ -10,4 +11,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest discover -s tests -v
+      - name: Structural tests
+        run: python -m unittest discover -s tests -v
+      - name: Install Godot 4.3
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+          use-dotnet: false
+      - name: Import project and parse scripts
+        run: godot --headless --editor --path . --import --quit
+      - name: Boot main scene for 60 frames
+        run: godot --headless --path . --quit-after 60
