@@ -13,6 +13,7 @@ var touch_move_id := -1
 var touch_origin := Vector2.ZERO
 
 func _ready() -> void:
+    _setup_input()
     _build_world()
     _build_ui()
     multiplayer.peer_connected.connect(_on_peer_connected)
@@ -20,6 +21,15 @@ func _ready() -> void:
     multiplayer.connected_to_server.connect(_on_connected)
     multiplayer.connection_failed.connect(_on_connection_failed)
     multiplayer.server_disconnected.connect(_on_disconnected)
+
+func _setup_input() -> void:
+    var keys := {"move_left": KEY_A, "move_right": KEY_D, "move_forward": KEY_W, "move_back": KEY_S, "interact": KEY_E}
+    for action in keys:
+        if not InputMap.has_action(action):
+            InputMap.add_action(action)
+        var key := InputEventKey.new()
+        key.physical_keycode = keys[action]
+        InputMap.action_add_event(action, key)
 
 func _box(pos: Vector3, size: Vector3, color: Color) -> void:
     var mesh := MeshInstance3D.new()
@@ -182,6 +192,8 @@ func despawn_remote(id: int) -> void:
     _despawn(id)
 
 func _process(delta: float) -> void:
+    if Input.is_action_just_pressed("interact"):
+        _request_interact()
     if not multiplayer.has_multiplayer_peer():
         return
     elapsed += delta
@@ -196,8 +208,6 @@ func _process(delta: float) -> void:
                 submit_state.rpc_id(1, player.global_position, player.rotation.y, player.camera.rotation.x)
         if multiplayer.is_server():
             prop_state.rpc(prop.global_position, prop.linear_velocity, carried_by)
-    if Input.is_action_just_pressed("interact"):
-        _request_interact()
 
 @rpc("any_peer", "call_remote", "unreliable")
 func submit_state(pos: Vector3, yaw: float, pitch: float) -> void:
