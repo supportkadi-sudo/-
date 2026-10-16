@@ -18,7 +18,18 @@ jobs:
         with:
           version: 4.3.0
           use-dotnet: false
+      - name: Install virtual display and Mesa
+        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libgl1
       - name: Import project and parse scripts
         run: godot --headless --editor --path . --import --quit
       - name: Boot main scene for 60 frames
         run: godot --headless --path . --quit-after 60
+      - name: Capture actual rendered solo gameplay
+        run: xvfb-run -a -s '-screen 0 1280x720x24' godot --path . --rendering-driver opengl3 --script res://tests/capture.gd
+      - name: Upload gameplay screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hookah-bros-screenshot
+          path: artifacts/solo.png
+          if-no-files-found: warn
