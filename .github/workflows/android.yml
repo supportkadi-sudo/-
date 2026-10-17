@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -19,7 +22,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1); fi
           test -n "$SDKMANAGER" && test -f "$SDKMANAGER"
-          bash "$SDKMANAGER" --licenses < /dev/null >/dev/null || true
+          bash "$SDKMANAGER" --licenses < /dev/null >/dev/null
           bash "$SDKMANAGER" --install 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
           test -d "$ANDROID_HOME/platforms/android-35"
       - name: Install Godot and Android export templates
@@ -39,7 +42,7 @@ jobs:
           mkdir -p "$HOME/.android"
           keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
       - name: Configure Godot Android SDK paths
-        run: godot --headless --editor --path . --script res://tests/configure_android.gd
+        run: timeout 60 godot --headless --editor --path . --script res://tests/configure_android.gd
       - name: Import resources
         run: |
           mkdir -p diagnostics

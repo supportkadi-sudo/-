@@ -31,11 +31,12 @@ func _ready() -> void:
     var mesh := CapsuleMesh.new()
     mesh.radius = 0.32
     mesh.height = 1.7
-    avatar.mesh = mesh
     avatar.position.y = 0.85
     var mat := StandardMaterial3D.new()
     mat.albedo_color = Color.from_hsv(float(get_index() % 4) / 4.0, 0.45, 0.75)
     mesh.material = mat
+    if DisplayServer.get_name() != "headless":
+        avatar.mesh = mesh
     avatar.visible = not local_control
     add_child(avatar)
     camera = Camera3D.new()

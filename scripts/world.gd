@@ -17,7 +17,8 @@ func box(pos: Vector3, size: Vector3, color: Color, parent: Node = self, solid: 
     var mesh := MeshInstance3D.new()
     var shape := BoxMesh.new()
     shape.size = size
-    mesh.mesh = shape
+    if DisplayServer.get_name() != "headless":
+        mesh.mesh = shape
     shape.material = material(color)
     body.add_child(mesh)
     if solid:
@@ -29,18 +30,23 @@ func box(pos: Vector3, size: Vector3, color: Color, parent: Node = self, solid: 
     return body
 
 func cylinder(parent: Node3D, pos: Vector3, radius: float, height: float, color: Color) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
     var mesh := MeshInstance3D.new()
     var shape := CylinderMesh.new()
     shape.top_radius = radius * 0.8
     shape.bottom_radius = radius
     shape.height = height
     shape.radial_segments = 10
-    mesh.mesh = shape
+    if DisplayServer.get_name() != "headless":
+        mesh.mesh = shape
     mesh.position = pos
     shape.material = material(color)
     parent.add_child(mesh)
 
 func sign_at(text: String, pos: Vector3, font_size: int = 44) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
     var label := Label3D.new()
     label.text = text
     label.position = pos
@@ -150,6 +156,8 @@ func make_hookah(pos: Vector3) -> void:
     hookahs.append(body)
 
 func smoke(pos: Vector3) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
     var particles := CPUParticles3D.new()
     particles.position = pos
     particles.amount = 14
