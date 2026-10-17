@@ -165,10 +165,8 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
     parent.add_child(s)
 
 func _debug_layout() -> void:
-    if not OS.is_debug_build():
+    if not OS.is_debug_build() or DisplayServer.get_name() == "headless":
         return
-    await get_tree().process_frame
-    await get_tree().process_frame
     var layout := {}
     var screen := get_viewport().get_screen_transform()
     for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button]]:
