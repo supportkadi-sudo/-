@@ -77,7 +77,8 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("tests/verify_apk.py", workflow)
         self.assertIn("tests/android_smoke.py", workflow)
-        self.assertIn("settings.save()", configure)
+        self.assertNotIn("settings.save()", configure)
+        self.assertIn("settings.set_setting", configure)
         self.assertTrue((ROOT / "tests/android_smoke.py").is_file())
         self.assertTrue((ROOT / "tests/verify_apk.py").is_file())
 
