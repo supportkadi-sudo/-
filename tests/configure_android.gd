@@ -16,6 +16,5 @@ func _configure() -> void:
     var settings := EditorInterface.get_editor_settings()
     settings.set_setting("export/android/android_sdk_path", sdk)
     settings.set_setting("export/android/java_sdk_path", java)
-    settings.save()
     print("ANDROID_EXPORT_SETTINGS_OK sdk=", sdk, " java=", java)
     quit(0)

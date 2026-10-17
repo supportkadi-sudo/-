@@ -70,7 +70,8 @@ func _ready() -> void:
     ip.custom_minimum_size.y = 44
     column.add_child(ip)
     button(column,"Подключиться",func(): join.emit(ip.text.strip_edges()))
-    button(column,"Настройки",func(): settings.visible = not settings.visible)
+    var settings_button := button(column,"Настройки",_toggle_settings)
+    settings_button.name = "SettingsButton"
     button(column,"Вернуться / в меню",func():
         if playing:
             leave.emit()
@@ -119,7 +120,8 @@ func _ready() -> void:
         var kind: String = pair[1]
         button(buttons,pair[0],func(): action.emit(kind))
     joystick = Control.new()
-    joystick.position = Vector2(125,560)
+    joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+    joystick.position = Vector2(125,-130)
     joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
     joystick.draw.connect(func():
         joystick.draw_circle(Vector2.ZERO,72,Color(0.82,0.74,0.57,0.18))
@@ -149,6 +151,14 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
     s.value_changed.connect(callback)
     parent.add_child(s)
 
+func _toggle_settings() -> void:
+    settings.visible = not settings.visible
+    var column := menu.get_child(0)
+    for child in column.get_children():
+        if child == settings or child.get_index() < 2 or child.name == "SettingsButton":
+            continue
+        child.visible = not settings.visible
+
 func save() -> void:
     var cfg := ConfigFile.new()
     cfg.set_value("controls","sensitivity",sensitivity)
@@ -169,6 +179,8 @@ func reset_touch() -> void:
 func set_playing(value: bool) -> void:
     playing=value
     paused=false
+    if settings.visible:
+        _toggle_settings()
     menu.visible=not value
     hud.visible=value
     reset_touch()
