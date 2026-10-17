@@ -33,6 +33,17 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn("HookahBros-Android-debug", android)
         self.assertIn('name="Android"', (ROOT / "export_presets.cfg").read_text())
 
+    def test_ci_failure_reporting(self):
+        reporter = (ROOT / ".github/workflows/ci-report.yml").read_text()
+        self.assertIn("workflow_run:", reporter)
+        self.assertIn("issues: write", reporter)
+        self.assertIn("gh issue edit", reporter)
+        android = (ROOT / ".github/workflows/android.yml").read_text()
+        self.assertIn("android-diagnostic-logs", android)
+        self.assertIn("diagnostics/export.log", android)
+        godot = (ROOT / ".github/workflows/smoke.yml").read_text()
+        self.assertIn("godot-diagnostic-logs", godot)
+
     def test_server_checks(self):
         text = (ROOT / "scripts/main.gd").read_text()
         self.assertIn("multiplayer.get_remote_sender_id()", text)
