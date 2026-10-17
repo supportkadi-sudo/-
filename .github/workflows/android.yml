@@ -135,6 +135,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v0.1.0 is already published; preserving the existing release."
+            exit 0
+          fi
           cp build/HookahBros-debug.apk build/HookahBros-v0.1.0-arm64.apk
           sha256sum build/HookahBros-v0.1.0-arm64.apk > build/SHA256SUMS.txt
           gh release create v0.1.0 --target "$GITHUB_SHA" --title 'Hookah Bros v0.1.0 — LAN prototype' --notes-file docs/RELEASE-v0.1.0.md build/HookahBros-v0.1.0-arm64.apk build/SHA256SUMS.txt
