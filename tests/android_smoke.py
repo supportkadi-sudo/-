@@ -35,7 +35,18 @@ w,h=capture('android-menu.png')
 assert w/h>=2.0,'Wide-screen Android test profile was not applied'
 tap_control('solo')
 time.sleep(5);alive();capture('android-solo.png')
-# Exercise touch jump, drag camera and pause; the runtime emits truthful state markers.
+# Aim at the bottle placed near player one's spawn, then use the real HUD buttons.
+adb('shell','input','swipe',str(int(w*.70)),str(int(h*.28)),str(int(w*.605)),str(int(h*.60)),'500')
+time.sleep(1)
+tap_control('interact')
+time.sleep(1);alive();capture('android-held.png')
+logs=adb('logcat','-d').decode(errors='replace')
+assert 'HB_PROP_PICKED:' in logs,'Android interact button did not pick up the aimed room prop'
+tap_control('throw')
+time.sleep(1);alive();capture('android-thrown.png')
+logs=adb('logcat','-d').decode(errors='replace')
+assert 'HB_PROP_THROWN' in logs,'Android throw button did not release the held prop'
+# Exercise jump, camera drag, pause and resume through Android touch/input events.
 tap_control('jump')
 adb('shell','input','swipe',str(int(w*.65)),str(int(h*.45)),str(int(w*.73)),str(int(h*.42)),'300')
 tap_control('pause')

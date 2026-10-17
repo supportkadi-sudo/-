@@ -376,6 +376,8 @@ func _action(id: int,kind: String) -> bool:
         var index := holders.find(id)
         if index >= 0:
             _release(index,id,true)
+            if OS.is_debug_build():
+                print("HB_PROP_THROWN")
             return true
         return false
     if kind == "use" and hoses.has(id):
@@ -407,6 +409,8 @@ func _action(id: int,kind: String) -> bool:
             return false
         holders[index]=id
         object.freeze=true
+        if OS.is_debug_build():
+            print("HB_PROP_PICKED:",object.get_meta("title"))
         return true
     if object.has_meta("hookah_index"):
         var index: int=object.get_meta("hookah_index")
