@@ -8,6 +8,7 @@ var authoritative := true
 var movement := Vector2.ZERO
 var camera: Camera3D
 var ray: RayCast3D
+var aim_cast: ShapeCast3D
 var sync_target := Vector3.ZERO
 var target_yaw := 0.0
 var target_pitch := 0.0
@@ -46,9 +47,19 @@ func _ready() -> void:
     add_child(camera)
     camera.current = local_control
     ray = RayCast3D.new()
-    ray.target_position = Vector3(0, 0, -2.5)
+    ray.target_position = Vector3(0, 0, -3.0)
     ray.collision_mask = 5
     camera.add_child(ray)
+    # A small spherical sweep makes tiny props usable on touchscreens without
+    # turning interaction into a wide, wall-penetrating proximity check.
+    aim_cast = ShapeCast3D.new()
+    var aim_shape := SphereShape3D.new()
+    aim_shape.radius = 0.25
+    aim_cast.shape = aim_shape
+    aim_cast.target_position = ray.target_position
+    aim_cast.collision_mask = ray.collision_mask
+    aim_cast.max_results = 12
+    camera.add_child(aim_cast)
     sync_target = global_position
 
 func look(relative: Vector2) -> void:

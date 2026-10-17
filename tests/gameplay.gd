@@ -23,11 +23,34 @@ func run() -> void:
     check(main.players.size()==1,"solo creates one player")
     var p: CharacterBody3D=main.players[1]
     check(p.is_on_floor() and absf(p.position.y)<0.15,"spawn and gravity settle on floor")
+    # Exercise selection and the same UI signal used by the mobile action button
+    # against a prop in its actual room position, with a slight aim offset.
+    var room_prop: RigidBody3D=main.world.props[4]
+    await wait(1.0)
+    p.camera.look_at(room_prop.global_position+Vector3(0.22,0.04,0))
+    await physics_frame
+    var selected: Object=main.target(p)
+    if selected != room_prop:
+        print("AIM_DEBUG camera=",p.camera.global_position," prop=",room_prop.global_position," ray_hit=",p.ray.get_collider() if p.ray.is_colliding() else "none"," ray_point=",p.ray.get_collision_point() if p.ray.is_colliding() else Vector3.ZERO," cast_count=",p.aim_cast.get_collision_count())
+        for collision in range(p.aim_cast.get_collision_count()):
+            var collider: Object=p.aim_cast.get_collider(collision)
+            print("AIM_DEBUG cast=",collider.name," interactable=",main._is_interactable(collider)," point=",p.aim_cast.get_collision_point(collision))
+    check(selected==room_prop,"touch-friendly aim selects a nearby room prop")
+    main._update_hint(p)
+    check(main.ui.hint.text.contains("взять Бутылка"),"mobile interaction hint names the target prop")
+    main.ui.action.emit("interact")
+    check(main.holders[4]==1 and room_prop.freeze,"mobile action signal picks up room prop")
+    check(main.ui.hint.text.contains("Q: бросить"),"HUD switches to the throw hint after pickup")
+    await wait(0.2)
+    main.ui.action.emit("throw")
+    check(main.holders[4]==0 and not room_prop.freeze,"mobile action signal throws held prop")
     main.jump_pending=true
     await wait(0.2)
     check(p.position.y>0.4,"jump leaves floor")
     await wait(1)
     check(p.is_on_floor(),"jump lands")
+    p.rotation.y=0
+    p.camera.rotation=Vector3.ZERO
     # Place a real rigid object on the camera ray; exercise authoritative ray selection.
     var prop: RigidBody3D=main.world.props[0]
     prop.freeze=true

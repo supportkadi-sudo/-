@@ -29,6 +29,8 @@ var join_button: Button
 var exit_button: Button
 var jump_button: Button
 var pause_button: Button
+var interact_button: Button
+var throw_button: Button
 
 func _ready() -> void:
     var cfg := ConfigFile.new()
@@ -131,6 +133,10 @@ func _ready() -> void:
         var control := button(buttons,pair[0],func(): action.emit(kind))
         if kind == "jump":
             jump_button=control
+        elif kind == "interact":
+            interact_button=control
+        elif kind == "throw":
+            throw_button=control
     joystick = Control.new()
     joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
     joystick.position = Vector2(125,-130)
@@ -167,9 +173,11 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
 func _debug_layout() -> void:
     if not OS.is_debug_build() or DisplayServer.get_name() == "headless":
         return
-    var layout := {}
+    var layout := {"viewport": [get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y]}
     var screen := get_viewport().get_screen_transform()
-    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button]]:
+    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button],["interact",interact_button],["throw",throw_button]]:
+        if not is_instance_valid(entry[1]):
+            continue
         var point: Vector2=screen*entry[1].get_global_rect().get_center()
         layout[entry[0]]=[point.x,point.y]
     print("HB_UI_LAYOUT:",JSON.stringify(layout))

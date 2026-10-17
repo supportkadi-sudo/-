@@ -8,6 +8,8 @@ def alive():
     assert adb('shell','pidof','com.hookahbros.prototype').strip(), 'Android app exited'
 adb('install','-r','build/HookahBros-emulator.apk')
 adb('shell','settings','put','secure','immersive_mode_confirmations','confirmed')
+# Reproduce a modern wide-screen phone while keeping the same Android emulator.
+adb('shell','wm','size','2340x1080')
 adb('logcat','-c')
 adb('shell','monkey','-p','com.hookahbros.prototype','-c','android.intent.category.LAUNCHER','1')
 for attempt in range(60):
@@ -30,10 +32,21 @@ def tap_control(name):
     point=json.loads(lines[-1])[name]
     adb('shell','input','tap',str(round(point[0])),str(round(point[1])))
 w,h=capture('android-menu.png')
-assert w>h,'Game must launch landscape'
+assert w/h>=2.0,'Wide-screen Android test profile was not applied'
 tap_control('solo')
 time.sleep(5);alive();capture('android-solo.png')
-# Exercise touch jump, drag camera and pause; the runtime emits truthful state markers.
+# Aim at the bottle placed near player one's spawn, then use the real HUD buttons.
+adb('shell','input','swipe',str(int(w*.70)),str(int(h*.28)),str(int(w*.605)),str(int(h*.60)),'500')
+time.sleep(1)
+tap_control('interact')
+time.sleep(1);alive();capture('android-held.png')
+logs=adb('logcat','-d').decode(errors='replace')
+assert 'HB_PROP_PICKED:' in logs,'Android interact button did not pick up the aimed room prop'
+tap_control('throw')
+time.sleep(1);alive();capture('android-thrown.png')
+logs=adb('logcat','-d').decode(errors='replace')
+assert 'HB_PROP_THROWN' in logs,'Android throw button did not release the held prop'
+# Exercise jump, camera drag, pause and resume through Android touch/input events.
 tap_control('jump')
 adb('shell','input','swipe',str(int(w*.65)),str(int(h*.45)),str(int(w*.73)),str(int(h*.42)),'300')
 tap_control('pause')
@@ -44,6 +57,11 @@ logs=adb('logcat','-d').decode(errors='replace');(out/'android-logcat.txt').writ
 assert 'HB_SOLO_READY' in logs,'Solo session did not start'
 assert 'HB_JUMP_REQUEST' in logs,'Jump control did not fire'
 assert 'HB_PAUSE_OPEN' in logs,'Pause menu did not open'
+layouts=[json.loads(line.split('HB_UI_LAYOUT:',1)[1]) for line in logs.splitlines() if 'HB_UI_LAYOUT:' in line]
+assert layouts,'No UI layout diagnostics on wide screen'
+for name in ('jump','pause'):
+    x,y=layouts[-1][name]
+    assert 0<=x<w and 0<=y<h, f'{name} button outside wide-screen bounds: {(x,y)} vs {(w,h)}'
 assert not re.search(r'FATAL EXCEPTION|Fatal signal|SCRIPT ERROR:|Parse Error:',logs)
 assert not any('godot' in line and 'ERROR:' in line for line in logs.splitlines()), 'Crash/script error in Android logcat'
 print('ANDROID_RUNTIME_OK: install, menu, solo, controls, pause and resume')
