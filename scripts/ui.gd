@@ -167,9 +167,11 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
 func _debug_layout() -> void:
     if not OS.is_debug_build() or DisplayServer.get_name() == "headless":
         return
-    var layout := {}
+    var layout := {"viewport": [get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y]}
     var screen := get_viewport().get_screen_transform()
-    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button]]:
+    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button],["interact",hud.get_node_or_null("VBoxContainer/Button2")]]:
+        if not is_instance_valid(entry[1]):
+            continue
         var point: Vector2=screen*entry[1].get_global_rect().get_center()
         layout[entry[0]]=[point.x,point.y]
     print("HB_UI_LAYOUT:",JSON.stringify(layout))
