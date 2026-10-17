@@ -16,8 +16,11 @@ jobs:
       - name: Install Android platform and build tools
         run: |
           test -d "${ANDROID_HOME:?Android SDK must exist on ubuntu-latest}"
-          sdkmanager --licenses < /dev/null >/dev/null || true
-          sdkmanager --install 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | sort -V | tail -1); fi
+          test -n "$SDKMANAGER" && test -f "$SDKMANAGER"
+          bash "$SDKMANAGER" --licenses < /dev/null >/dev/null || true
+          bash "$SDKMANAGER" --install 'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
           test -d "$ANDROID_HOME/platforms/android-35"
       - name: Install Godot and Android export templates
         uses: chickensoft-games/setup-godot@v2
