@@ -1,11 +1,16 @@
 name: Godot validation
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,8 +33,12 @@ jobs:
         run: godot --headless --path . --quit-after 60 2>&1 | tee diagnostics/godot-boot.log
       - name: Exercise solo gameplay, interactions and session flow
         run: godot --headless --path . --script res://tests/gameplay.gd 2>&1 | tee diagnostics/gameplay.log
+      - name: Real ENet multiplayer tests
+        run: python tests/run_network.py
       - name: Capture actual rendered solo gameplay
-        run: xvfb-run -a -s '-screen 0 1280x720x24' godot --path . --rendering-driver opengl3 --script res://tests/capture.gd 2>&1 | tee diagnostics/godot-capture.log
+        run: xvfb-run -a -s '-screen 0 1280x720x24' godot --path . --audio-driver Dummy --rendering-driver opengl3 --script res://tests/capture.gd 2>&1 | tee diagnostics/godot-capture.log
+      - name: Reject engine and script errors in logs
+        run: python tests/check_logs.py diagnostics
       - name: Upload Godot diagnostic logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -43,5 +52,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hookah-bros-screenshot
-          path: artifacts/solo.png
+          path: artifacts/*.png
           if-no-files-found: warn

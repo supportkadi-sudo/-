@@ -55,6 +55,46 @@ func run() -> void:
     check(main._action(1,"use"),"hookah smoke event")
     await wait(0.25)
     check(not main._action(1,"use"),"hookah cooldown")
+    # Independent multitouch fingers: movement and look must coexist.
+    var left := InputEventScreenTouch.new()
+    left.index=0
+    left.position=Vector2(120,560)
+    left.pressed=true
+    main.ui._unhandled_input(left)
+    var right := InputEventScreenTouch.new()
+    right.index=1
+    right.position=Vector2(800,350)
+    right.pressed=true
+    main.ui._unhandled_input(right)
+    var move := InputEventScreenDrag.new()
+    move.index=0
+    move.position=Vector2(180,560)
+    main.ui._unhandled_input(move)
+    var look := InputEventScreenDrag.new()
+    look.index=1
+    look.relative=Vector2(40,10)
+    main.ui._unhandled_input(look)
+    check(main.ui.move_axis.x>0.5 and main.ui.look_delta.x>0,"multitouch movement and look coexist")
+    left.pressed=false
+    main.ui._input(left)
+    check(main.ui.move_axis==Vector2.ZERO and main.ui.look_finger==1,"release movement preserves look finger")
+    main.ui.reset_touch()
+    var config := ConfigFile.new()
+    check(config.load("user://settings.cfg")==OK,"settings persisted")
+    # Physics collision: held item sweeps before a wall; player stays within room bounds.
+    p.position=Vector3(0,0,-5.3)
+    p.rotation.y=0
+    p.camera.rotation=Vector3.ZERO
+    main.holders[0]=1
+    prop.freeze=true
+    await physics_frame
+    await physics_frame
+    check(prop.position.z>-5.8,"held item stops before wall")
+    main.holders[0]=0
+    for tick in range(25):
+        p.accept_input(Vector2(0,-1),0,0,false)
+        await physics_frame
+    check(p.position.z>-5.55,"host physics blocks walking through wall")
     main.ui.toggle_pause()
     check(main.ui.paused,"pause opens menu")
     main.ui.reset_touch()

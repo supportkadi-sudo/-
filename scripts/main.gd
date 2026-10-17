@@ -19,6 +19,7 @@ var connecting := false
 var connection_time := 0.0
 var jump_pending := false
 var session_kind := ""
+var smoke_events := 0
 var menu_camera: Camera3D
 
 func _ready() -> void:
@@ -39,6 +40,7 @@ func _ready() -> void:
     ui.leave.connect(_leave)
     ui.action.connect(_request_action)
     ui.changed.connect(_settings_changed)
+    print("HB_MENU_READY")
     _settings_changed()
     multiplayer.peer_connected.connect(_on_peer_connected)
     multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -55,6 +57,9 @@ func _setup_input() -> void:
         key.physical_keycode = keys[action]
         InputMap.action_add_event(action,key)
 
+func local_id() -> int:
+    return multiplayer.get_unique_id() if multiplayer.has_multiplayer_peer() else 1
+
 func authority() -> bool:
     return not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
 
@@ -68,6 +73,7 @@ func _settings_changed() -> void:
 func _solo() -> void:
     if active or connecting:
         return
+    print("HB_SOLO_READY")
     session_kind="Одиночная игра"
     active=true
     _spawn(1)
@@ -132,6 +138,7 @@ func _leave(message: String = "Сессия завершена") -> void:
         multiplayer.multiplayer_peer.close()
     multiplayer.multiplayer_peer=null
     for p in players.values():
+        remove_child(p)
         p.queue_free()
     players.clear()
     hoses.clear()
@@ -155,7 +162,7 @@ func _spawn(id: int, spawn_position: Vector3 = Vector3.INF) -> void:
         return
     var p: HookahPlayer=PlayerScript.new()
     p.name="Player_%d" % id
-    p.local_control=id==multiplayer.get_unique_id()
+    p.local_control=id==local_id()
     p.authoritative=authority()
     p.position=spawn_position if spawn_position.is_finite() else world.spawns[players.size()]
     add_child(p)
@@ -186,7 +193,7 @@ func _on_peer_connected(id: int) -> void:
             spawn_remote.rpc_id(existing,id,pos)
 
 func _on_peer_disconnected(id: int) -> void:
-    if not authority():
+    if not active or not authority():
         return
     for i in range(holders.size()):
         if holders[i] == id:
@@ -217,7 +224,7 @@ func _process(delta: float) -> void:
             _leave("Таймаут: хост недоступен или комната заполнена")
     if not active:
         return
-    var id := multiplayer.get_unique_id()
+    var id := local_id()
     if players.has(id):
         var p: HookahPlayer=players[id]
         if not ui.paused:
@@ -287,9 +294,9 @@ func target(p: HookahPlayer) -> Object:
 
 func _update_hint(p: HookahPlayer) -> void:
     var text := "%s • %d/4" % [session_kind,players.size()]
-    if holders.has(multiplayer.get_unique_id()):
+    if holders.has(local_id()):
         text+=" | Q: бросить"
-    elif hoses.has(multiplayer.get_unique_id()):
+    elif hoses.has(local_id()):
         text+=" | F: дым • E: отпустить шланг"
     else:
         var object := target(p)
@@ -307,9 +314,10 @@ func _request_action(kind: String) -> void:
     if not active or ui.paused:
         return
     if kind == "jump":
+        print("HB_JUMP_REQUEST")
         jump_pending=true
     elif authority():
-        _action(multiplayer.get_unique_id(),kind)
+        _action(local_id(),kind)
     else:
         action_request.rpc_id(1,kind)
 
@@ -410,6 +418,7 @@ func _physics_process(_delta: float) -> void:
 
 @rpc("authority","call_remote","reliable",3)
 func smoke_event(pos: Vector3,id: int) -> void:
+    smoke_events+=1
     world.smoke(pos)
     if players.has(id):
         var p: HookahPlayer=players[id]

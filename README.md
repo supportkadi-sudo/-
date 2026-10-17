@@ -1,26 +1,27 @@
-# Hookah Bros 0.1
+# Hookah Bros v0.1.0
 
-Experimental Godot 4 first-person cooperative Android/desktop prototype for up to four players.
+A small first-person comedy sandbox built with Godot **4.3**, Compatibility/OpenGL ES 3 and original procedural geometry/audio. Android ARM64 is the deliverable platform; desktop keyboard control remains available for tests.
 
-Open `project.godot` in Godot 4.3+. Run and choose **Host (LAN)** on one device; other devices join using the host's local IP. UDP 28765 must be reachable. Desktop: WASD, mouse, E. Android: touch controls are experimental.
+## Play
 
-This is a LAN prototype, **not** internet matchmaking or a verified Android release. A dedicated server, authoritative validation, mobile testing and an export preset are future work.
+Choose **Играть одному**, or **Создать комнату • LAN**. On other phones connected to the same Wi-Fi network, enter the host's local IP and choose **Подключиться**. The pause menu on the host displays its IP. UDP **28765** must be reachable; up to **four** players including the host. Mobile hotspots and Wi-Fi client isolation can prevent connections.
 
-Run structural tests: `python -m unittest discover -s tests -v`.
+This version has **no relay, matchmaking, NAT traversal or public server**. Different mobile networks generally cannot connect without network configuration. Host exit closes the room.
 
-## Cloud build and visual verification
+Touch: left joystick, right-side drag to look; jump, take/hose, throw and use buttons. Desktop: **WASD**, mouse, **Space** jump, **E** take item/hose or release hose, **Q** throw, **F** use hookah, **Esc** pause. Approach an object and aim the crosshair at it. Hose use has a two-second cooldown and requires staying near the hookah.
 
-GitHub Actions workflows:
+The lounge includes reception, sofas/tables, four usable hookahs, shelves, windows, a door, posters, warm lamps, a bin and eight rigid objects (bottles, cups, boxes, ashtrays). Camera sensitivity, audio volume and graphics settings persist between launches. This is an early low-poly prototype.
 
-- **Godot validation**: Python structural checks, Godot 4.3 import, 60-frame headless boot, and a virtual-display screenshot of the solo scene. When successful, the real Godot screenshot is available as the `hookah-bros-screenshot` workflow artifact.
-- **Android APK (experimental)**: attempts a Godot 4.3 Android arm64 debug export and uploads `HookahBros-Android-debug` as a workflow artifact on success. It is a development build, not a Play Store release.
+## Verification
 
-See [Actions](https://github.com/supportkadi-sudo/-/actions). CI configuration is not proof of a successful build: inspect each run's logs and artifacts. Android testing on physical devices and internet matchmaking remain pending.
+- `python -m unittest discover -s tests -v`: project/configuration checks.
+- `godot --headless --editor --path . --import --quit`: Godot 4.3 parsing and imports.
+- `godot --headless --path . --script res://tests/gameplay.gd`: real solo/session/interaction physics tests.
+- `GODOT=godot python tests/run_network.py`: real ENet processes; capacity, movement, disconnect/rejoin, host exit, item ownership, throws, hose exclusivity and smoke replication.
+- `xvfb-run -a godot --audio-driver Dummy --path . --rendering-driver opengl3 --script res://tests/capture.gd`: rendered menu and gameplay PNGs.
 
-Solo mode: start the project and press **Play solo (offline)**. On desktop use WASD, mouse and E; on mobile drag the left half to move and right half to look, and use **Pick / Throw**.
+Godot validation uploads screenshots and logs. Android CI checks ARM64 APK contents and signature, then exports the **same game source** as x86_64 for installation, menu/solo/touch/pause/resume checks in an Android API 29 emulator. The emulator build is separate from the downloadable ARM64 APK. Emulation does not establish real-phone performance or validate the ARM64 runtime itself. Target: 30 FPS; no measured physical-device FPS claim.
 
-## Automatic CI diagnostics
+Download the debug APK from the successful **Android APK (experimental)** run's `HookahBros-Android-debug` artifact. Release assets, when present, are linked under GitHub Releases. Inspect the exact commit/run; old CI diagnostics are not proof of current failures.
 
-Both GitHub Actions workflows save diagnostic logs as downloadable artifacts, including on failures. A separate `CI failure reporter` workflow listens for completed failed runs and creates or updates one [CI diagnostics issue](https://github.com/supportkadi-sudo/-/issues?q=is%3Aissue+%22Hookah+Bros+CI%3A+latest+failure%22) with the failed step names and direct run URL. This makes failed run IDs discoverable through the GitHub issue search API without manually opening the mobile Actions UI.
-
-The reporter intentionally does not paste raw logs into the issue. Developers can fetch the referenced job logs using the GitHub API. This automation reports failures but does not automatically change game code or guarantee a passing build.
+All geometry, materials and sound are generated by project code; no external asset licences or SDK accounts are required. No paid services or analytics SDKs are included.

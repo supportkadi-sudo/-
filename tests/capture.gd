@@ -18,6 +18,9 @@ func _capture() -> void:
         push_error("Main scene was not loaded")
         quit(1)
         return
+    DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://artifacts"))
+    await RenderingServer.frame_post_draw
+    root.get_texture().get_image().save_png("res://artifacts/menu.png")
     main.call("_solo")
     for frame in range(20):
         await process_frame

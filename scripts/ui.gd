@@ -23,6 +23,12 @@ var quality := 1
 var playing := false
 var paused := false
 var joystick: Control
+var solo_button: Button
+var host_button: Button
+var join_button: Button
+var exit_button: Button
+var jump_button: Button
+var pause_button: Button
 
 func _ready() -> void:
     var cfg := ConfigFile.new()
@@ -62,16 +68,21 @@ func _ready() -> void:
     subtitle.text = "v0.1.0 • Дым коромыслом"
     subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     column.add_child(subtitle)
-    button(column,"Играть одному",func(): solo.emit())
-    button(column,"Создать комнату • LAN",func(): host.emit())
+    solo_button = button(column,"Играть одному",func():
+        if playing:
+            toggle_pause()
+        else:
+            solo.emit())
+    host_button = button(column,"Создать комнату • LAN",func(): host.emit())
     ip = LineEdit.new()
     ip.placeholder_text = "IP хоста, например 192.168.1.5"
     ip.text = "127.0.0.1"
     ip.custom_minimum_size.y = 44
     column.add_child(ip)
-    button(column,"Подключиться",func(): join.emit(ip.text.strip_edges()))
-    button(column,"Настройки",func(): settings.visible = not settings.visible)
-    button(column,"Вернуться / в меню",func():
+    join_button = button(column,"Подключиться",func(): join.emit(ip.text.strip_edges()))
+    var settings_button := button(column,"Настройки",_toggle_settings)
+    settings_button.name = "SettingsButton"
+    exit_button = button(column,"Выход",func():
         if playing:
             leave.emit()
         else:
@@ -106,8 +117,8 @@ func _ready() -> void:
     cross.text = "+"
     cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
     hud.add_child(cross)
-    var pause := button(hud,"Меню",toggle_pause)
-    pause.position = Vector2(20,15)
+    pause_button = button(hud,"Меню",toggle_pause)
+    pause_button.position = Vector2(20,15)
     var buttons := VBoxContainer.new()
     buttons.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
     buttons.offset_left = -205
@@ -117,15 +128,19 @@ func _ready() -> void:
     hud.add_child(buttons)
     for pair in [["Прыжок","jump"],["Взять / шланг","interact"],["Бросить","throw"],["Использовать","use"]]:
         var kind: String = pair[1]
-        button(buttons,pair[0],func(): action.emit(kind))
+        var control := button(buttons,pair[0],func(): action.emit(kind))
+        if kind == "jump":
+            jump_button=control
     joystick = Control.new()
-    joystick.position = Vector2(125,560)
+    joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+    joystick.position = Vector2(125,-130)
     joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
     joystick.draw.connect(func():
         joystick.draw_circle(Vector2.ZERO,72,Color(0.82,0.74,0.57,0.18))
         joystick.draw_circle(move_axis*48,25,Color(0.82,0.74,0.57,0.55)))
     hud.add_child(joystick)
     set_playing(false)
+    get_viewport().size_changed.connect(func(): call_deferred("_debug_layout"))
     save()
 
 func button(parent: Node, text: String, callback: Callable) -> Button:
@@ -149,6 +164,33 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
     s.value_changed.connect(callback)
     parent.add_child(s)
 
+func _debug_layout() -> void:
+    if not OS.is_debug_build() or DisplayServer.get_name() == "headless":
+        return
+    var layout := {}
+    var screen := get_viewport().get_screen_transform()
+    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button]]:
+        var point: Vector2=screen*entry[1].get_global_rect().get_center()
+        layout[entry[0]]=[point.x,point.y]
+    print("HB_UI_LAYOUT:",JSON.stringify(layout))
+
+func _toggle_settings() -> void:
+    settings.visible = not settings.visible
+    var column := menu.get_child(0)
+    for child in column.get_children():
+        if child == settings or child.get_index() < 2 or child.name == "SettingsButton":
+            continue
+        child.visible = not settings.visible
+    if not settings.visible:
+        _refresh_menu()
+
+func _refresh_menu() -> void:
+    solo_button.text = "Продолжить" if playing else "Играть одному"
+    host_button.visible = not playing
+    join_button.visible = not playing
+    ip.visible = not playing
+    exit_button.text = "В главное меню" if playing else "Выход"
+
 func save() -> void:
     var cfg := ConfigFile.new()
     cfg.set_value("controls","sensitivity",sensitivity)
@@ -169,15 +211,21 @@ func reset_touch() -> void:
 func set_playing(value: bool) -> void:
     playing=value
     paused=false
+    if settings.visible:
+        _toggle_settings()
+    _refresh_menu()
     menu.visible=not value
     hud.visible=value
     reset_touch()
+    call_deferred("_debug_layout")
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if value and not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
 
 func toggle_pause() -> void:
     if not playing:
         return
     paused=not paused
+    if paused:
+        print("HB_PAUSE_OPEN")
     menu.visible=paused
     reset_touch()
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if not paused and not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE

@@ -1,5 +1,6 @@
 extends Node3D
 # Procedural original geometry: no external assets or licensing dependencies.
+var bubble: AudioStreamWAV
 var props: Array[RigidBody3D] = []
 var hookahs: Array[StaticBody3D] = []
 var spawns := [Vector3(-1.8, 0.1, 3.8), Vector3(-0.6, 0.1, 3.8), Vector3(0.6, 0.1, 3.8), Vector3(1.8, 0.1, 3.8)]
@@ -17,7 +18,8 @@ func box(pos: Vector3, size: Vector3, color: Color, parent: Node = self, solid: 
     var mesh := MeshInstance3D.new()
     var shape := BoxMesh.new()
     shape.size = size
-    mesh.mesh = shape
+    if DisplayServer.get_name() != "headless":
+        mesh.mesh = shape
     shape.material = material(color)
     body.add_child(mesh)
     if solid:
@@ -29,18 +31,23 @@ func box(pos: Vector3, size: Vector3, color: Color, parent: Node = self, solid: 
     return body
 
 func cylinder(parent: Node3D, pos: Vector3, radius: float, height: float, color: Color) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
     var mesh := MeshInstance3D.new()
     var shape := CylinderMesh.new()
     shape.top_radius = radius * 0.8
     shape.bottom_radius = radius
     shape.height = height
     shape.radial_segments = 10
-    mesh.mesh = shape
+    if DisplayServer.get_name() != "headless":
+        mesh.mesh = shape
     mesh.position = pos
     shape.material = material(color)
     parent.add_child(mesh)
 
 func sign_at(text: String, pos: Vector3, font_size: int = 44) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
     var label := Label3D.new()
     label.text = text
     label.position = pos
@@ -50,6 +57,18 @@ func sign_at(text: String, pos: Vector3, font_size: int = 44) -> void:
     add_child(label)
 
 func _ready() -> void:
+    bubble = AudioStreamWAV.new()
+    bubble.format = AudioStreamWAV.FORMAT_16_BITS
+    bubble.mix_rate = 22050
+    var audio := PackedByteArray()
+    audio.resize(22050)
+    for i in range(11025):
+        var t := float(i)/22050.0
+        var envelope := sin(PI*float(i)/11025.0)
+        var wave := sin(TAU*(140.0*t+sin(t*35.0)*0.7))*sin(t*70.0)
+        var sample := int(wave*envelope*3800.0)
+        audio.encode_s16(i*2,sample)
+    bubble.data=audio
     var brown := Color(0.27, 0.17, 0.12)
     var wall := Color(0.38, 0.31, 0.23)
     box(Vector3(0,-0.2,0), Vector3(14,0.4,12), Color(0.22,0.20,0.17))
@@ -150,6 +169,15 @@ func make_hookah(pos: Vector3) -> void:
     hookahs.append(body)
 
 func smoke(pos: Vector3) -> void:
+    if DisplayServer.get_name() == "headless":
+        return
+    var sound := AudioStreamPlayer3D.new()
+    sound.stream=bubble
+    sound.position=pos
+    sound.unit_size=3.0
+    add_child(sound)
+    sound.play()
+    sound.finished.connect(sound.queue_free)
     var particles := CPUParticles3D.new()
     particles.position = pos
     particles.amount = 14
