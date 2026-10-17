@@ -2,7 +2,7 @@ extends Node3D
 # The room uses small CC0 glTF/FBX props; collisions stay deliberately simple.
 const SOFA_LONG := preload("res://assets/models/loungeSofaLong.glb")
 const COFFEE_TABLE := preload("res://assets/models/tableCoffee.glb")
-const COUNTER := preload("res://assets/models/tableCrossCloth.glb")
+const COUNTER := preload("res://assets/models/kitchenBar.glb")
 const OPEN_SHELF := preload("res://assets/models/bookcaseOpen.glb")
 const CEILING_LAMP := preload("res://assets/models/lampSquareCeiling.glb")
 const TRASH_CAN := preload("res://assets/models/trashcan.glb")
@@ -48,6 +48,26 @@ func add_model(asset: PackedScene, parent: Node3D, center: Vector3, scale: Vecto
     instance.scale = scale
     instance.rotation.y = yaw
     instance.position = center - Basis(Vector3.UP, yaw) * (local_center * scale)
+    # Keep Kenney's wood and upholstery in the room's muted, worn palette.
+    for mesh_node in instance.find_children("*", "MeshInstance3D", true, false):
+        var mesh_instance := mesh_node as MeshInstance3D
+        if mesh_instance.mesh == null:
+            continue
+        for surface in range(mesh_instance.mesh.get_surface_count()):
+            var original := mesh_instance.get_active_material(surface) as StandardMaterial3D
+            if original == null:
+                continue
+            var material_name := original.resource_name.to_lower()
+            var tint := Color.WHITE
+            match material_name:
+                "carpet": tint = Color(0.34, 0.27, 0.16)
+                "wood": tint = Color(0.58, 0.37, 0.22)
+                "wooddark": tint = Color(0.36, 0.21, 0.12)
+                "metal": tint = Color(0.65, 0.62, 0.53)
+            if tint != Color.WHITE:
+                var adjusted := original.duplicate() as StandardMaterial3D
+                adjusted.albedo_color = tint
+                mesh_instance.set_surface_override_material(surface, adjusted)
     parent.add_child(instance)
     return instance
 
@@ -120,7 +140,7 @@ func _ready() -> void:
             add_model(COFFEE_TABLE,self,Vector3(x,0,z-1.25),Vector3(3.0,2.4,2.45),PI,Vector3(-0.13,0,-0.1))
             static_collision(Vector3(x,0.28,z-1.25),Vector3(1.95,0.56,0.86))
             make_hookah(Vector3(x,0.56,z-1.25))
-    add_model(COUNTER,self,Vector3(0,0,-4.3),Vector3(4.2,4.0,2.4),0.0,Vector3(0.425,0,-0.225))
+    add_model(COUNTER,self,Vector3(0,0,-4.3),Vector3(8.0,3.4,4.0),0.0,Vector3(0.215,0,-0.105))
     static_collision(Vector3(0,0.68,-4.3),Vector3(3.5,1.36,0.95))
     # One continuous low-poly shelf asset replaces the old pair of floating planks.
     add_model(OPEN_SHELF,self,Vector3(0,2.15,-5.65),Vector3(8.75,1.5,1.4),0.0,Vector3(0.2,0.44,0.125))
@@ -148,7 +168,7 @@ func _ready() -> void:
     env.environment.background_color = Color(0.15,0.12,0.09)
     env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.environment.ambient_light_color = Color(0.95,0.86,0.73)
-    env.environment.ambient_light_energy = 1.0
+    env.environment.ambient_light_energy = 0.82
     add_child(env)
     for x in [-3,3]:
         for z in [-2.8,2.6]:
@@ -156,7 +176,7 @@ func _ready() -> void:
         var light := OmniLight3D.new()
         light.position = Vector3(x,3.55,0.0)
         light.light_color = Color(1,0.82,0.58)
-        light.light_energy = 1.9
+        light.light_energy = 1.6
         light.omni_range = 11
         light.shadow_enabled = false
         add_child(light)
