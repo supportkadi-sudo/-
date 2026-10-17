@@ -18,3 +18,9 @@ GitHub Actions workflows:
 See [Actions](https://github.com/supportkadi-sudo/-/actions). CI configuration is not proof of a successful build: inspect each run's logs and artifacts. Android testing on physical devices and internet matchmaking remain pending.
 
 Solo mode: start the project and press **Play solo (offline)**. On desktop use WASD, mouse and E; on mobile drag the left half to move and right half to look, and use **Pick / Throw**.
+
+## Automatic CI diagnostics
+
+Both GitHub Actions workflows save diagnostic logs as downloadable artifacts, including on failures. A separate `CI failure reporter` workflow listens for completed failed runs and creates or updates one [CI diagnostics issue](https://github.com/supportkadi-sudo/-/issues?q=is%3Aissue+%22Hookah+Bros+CI%3A+latest+failure%22) with the failed step names and direct run URL. This makes failed run IDs discoverable through the GitHub issue search API without manually opening the mobile Actions UI.
+
+The reporter intentionally does not paste raw logs into the issue. Developers can fetch the referenced job logs using the GitHub API. This automation reports failures but does not automatically change game code or guarantee a passing build.
