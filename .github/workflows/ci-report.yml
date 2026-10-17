@@ -1,0 +1,49 @@
+name: CI failure reporter
+on:
+  workflow_run:
+    workflows:
+      - Godot validation
+      - Android APK (experimental)
+    types: [completed]
+permissions:
+  actions: read
+  contents: read
+  issues: write
+jobs:
+  report:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update one CI diagnostics issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          COMMIT: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          # Query only failed step names; do not copy potentially sensitive raw logs into issues.
+          gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '.jobs[] | select(.conclusion == "failure") | .name as $job | .steps[] | select(.conclusion == "failure") | "- " + $job + ": " + .name' > failed_steps.txt
+          {
+            echo "# Hookah Bros: latest failed CI run"
+            echo
+            echo "**Workflow:** $WORKFLOW"
+            echo "**Run:** $RUN_URL"
+            echo "**Commit:** $COMMIT"
+            echo
+            echo "## Failed steps"
+            if [ -s failed_steps.txt ]; then cat failed_steps.txt; else echo "See run for details."; fi
+            echo
+            echo "Logs and artifacts are available from the linked run."
+            echo "This issue is automatically updated on each failed run."
+          } > body.md
+          TITLE="Hookah Bros CI: latest failure"
+          ISSUE=$(gh issue list --repo "$REPO" --state open --search "$TITLE in:title" --json number,title --jq '.[] | select(.title == "Hookah Bros CI: latest failure") | .number' | head -n 1)
+          if [ -n "$ISSUE" ]; then
+            gh issue edit "$ISSUE" --repo "$REPO" --body-file body.md
+          else
+            gh issue create --repo "$REPO" --title "$TITLE" --body-file body.md
+          fi
