@@ -298,12 +298,18 @@ func target(p: HookahPlayer) -> Object:
     p.aim_cast.force_shapecast_update()
     var nearest: Object = null
     var nearest_distance := INF
+    var blocker_distance := INF
+    var blocker_point := Vector3.ZERO
     for index in range(p.aim_cast.get_collision_count()):
         var collider := p.aim_cast.get_collider(index)
         var distance := p.camera.global_position.distance_to(p.aim_cast.get_collision_point(index))
-        if distance < nearest_distance:
-            nearest = collider
-            nearest_distance = distance
+        if _is_interactable(collider):
+            if distance < nearest_distance:
+                nearest = collider
+                nearest_distance = distance
+        elif distance < blocker_distance:
+            blocker_distance = distance
+            blocker_point = p.aim_cast.get_collision_point(index)
 
     if not _is_interactable(nearest):
         return null
@@ -311,6 +317,11 @@ func target(p: HookahPlayer) -> Object:
     # object's hit area, but cannot select it through a closer ray obstruction.
     if p.ray.is_colliding() and p.camera.global_position.distance_to(p.ray.get_collision_point()) < nearest_distance - 0.08:
         return null
+    if blocker_distance < nearest_distance - 0.12:
+        # The floor touches small props at their base. Treat that contact as
+        # non-occluding only when it is immediately adjacent to the prop.
+        if blocker_point.y > 0.05 or nearest_distance - blocker_distance > 0.35:
+            return null
     return nearest
 
 func _is_interactable(object: Object) -> bool:

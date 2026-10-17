@@ -47,7 +47,7 @@ func _ready() -> void:
     add_child(camera)
     camera.current = local_control
     ray = RayCast3D.new()
-    ray.target_position = Vector3(0, 0, -2.5)
+    ray.target_position = Vector3(0, 0, -3.0)
     ray.collision_mask = 5
     camera.add_child(ray)
     # A small spherical sweep makes tiny props usable on touchscreens without
@@ -56,7 +56,7 @@ func _ready() -> void:
     var aim_shape := SphereShape3D.new()
     aim_shape.radius = 0.18
     aim_cast.shape = aim_shape
-    aim_cast.target_position = Vector3(0, 0, -2.5)
+    aim_cast.target_position = ray.target_position
     aim_cast.collision_mask = ray.collision_mask
     aim_cast.max_results = 12
     camera.add_child(aim_cast)
