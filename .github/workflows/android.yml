@@ -18,7 +18,13 @@ jobs:
         with:
           version: 4.3.0
           use-dotnet: false
-          export-templates: true
+          include-templates: true
+      - name: Verify Android export templates
+        run: |
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.3.stable"
+          ls -lah "$TEMPLATE_DIR"
+          test -s "$TEMPLATE_DIR/android_debug.apk"
+          test -s "$TEMPLATE_DIR/android_release.apk"
       - name: Create debug keystore
         run: |
           mkdir -p "$HOME/.android"
