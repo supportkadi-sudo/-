@@ -2,6 +2,9 @@ extends SceneTree
 
 # Run with: godot --headless --editor --path . --script res://tests/configure_android.gd
 func _initialize() -> void:
+    call_deferred("_configure")
+
+func _configure() -> void:
     var sdk := OS.get_environment("ANDROID_HOME")
     if sdk.is_empty():
         sdk = OS.get_environment("ANDROID_SDK_ROOT")

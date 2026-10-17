@@ -49,5 +49,27 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn("multiplayer.get_remote_sender_id()", text)
         self.assertIn("if not multiplayer.is_server():", text)
 
+    def test_core_gameplay_loop_exists(self):
+        main = (ROOT / "scripts/main.gd").read_text()
+        player = (ROOT / "scripts/player.gd").read_text()
+        world = (ROOT / "scripts/world.gd").read_text()
+        ui = (ROOT / "scripts/ui.gd").read_text()
+        gameplay_test = (ROOT / "tests/gameplay.gd").read_text()
+        workflow = (ROOT / ".github/workflows/smoke.yml").read_text()
+        self.assertIn('preload("res://scripts/world.gd")', main)
+        self.assertIn('preload("res://scripts/ui.gd")', main)
+        self.assertIn("func _action", main)
+        self.assertIn("func _release", main)
+        self.assertIn("func smoke_event", main)
+        self.assertIn('"jump":KEY_SPACE', main)
+        self.assertIn("jump_pending", player)
+        self.assertIn("move_and_slide()", player)
+        self.assertIn("func make_hookah", world)
+        self.assertIn("func make_prop", world)
+        self.assertIn("func toggle_pause", ui)
+        self.assertIn('"Бросить"', ui)
+        self.assertIn('main._action(1,"interact")', gameplay_test)
+        self.assertIn("res://tests/gameplay.gd", workflow)
+
 if __name__ == "__main__":
     unittest.main()

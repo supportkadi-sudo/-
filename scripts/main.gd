@@ -3,21 +3,43 @@ extends Node3D
 const PORT := 28765
 const MAX_PLAYERS := 4
 const PlayerScript = preload("res://scripts/player.gd")
+const WorldScript = preload("res://scripts/world.gd")
+const UIScript = preload("res://scripts/ui.gd")
 var players: Dictionary = {}
-var status_label: Label
-var ip_field: LineEdit
-var prop: RigidBody3D
-var carried_by := 0
+var world: Node3D
+var ui: CanvasLayer
+var holders: Array[int] = []
+var hoses: Dictionary = {}
+var cooldowns: Dictionary = {}
+var action_times: Dictionary = {}
+var input_times: Dictionary = {}
 var elapsed := 0.0
-var touch_move_id := -1
-var touch_origin := Vector2.ZERO
-var move_hint: Label
-var lobby_panel: VBoxContainer
+var active := false
+var connecting := false
+var connection_time := 0.0
+var jump_pending := false
+var session_kind := ""
+var menu_camera: Camera3D
 
 func _ready() -> void:
     _setup_input()
-    _build_world()
-    _build_ui()
+    world = WorldScript.new()
+    add_child(world)
+    for prop in world.props:
+        holders.append(0)
+    menu_camera = Camera3D.new()
+    menu_camera.position = Vector3(0,2,5)
+    add_child(menu_camera)
+    menu_camera.current = true
+    ui = UIScript.new()
+    add_child(ui)
+    ui.solo.connect(_solo)
+    ui.host.connect(_host)
+    ui.join.connect(_join_ip)
+    ui.leave.connect(_leave)
+    ui.action.connect(_request_action)
+    ui.changed.connect(_settings_changed)
+    _settings_changed()
     multiplayer.peer_connected.connect(_on_peer_connected)
     multiplayer.peer_disconnected.connect(_on_peer_disconnected)
     multiplayer.connected_to_server.connect(_on_connected)
@@ -25,291 +47,372 @@ func _ready() -> void:
     multiplayer.server_disconnected.connect(_on_disconnected)
 
 func _setup_input() -> void:
-    var keys := {"move_left": KEY_A, "move_right": KEY_D, "move_forward": KEY_W, "move_back": KEY_S, "interact": KEY_E}
+    var keys := {"move_left":KEY_A,"move_right":KEY_D,"move_forward":KEY_W,"move_back":KEY_S,"interact":KEY_E,"jump":KEY_SPACE,"throw":KEY_Q,"use":KEY_F,"pause":KEY_ESCAPE}
     for action in keys:
         if not InputMap.has_action(action):
             InputMap.add_action(action)
         var key := InputEventKey.new()
         key.physical_keycode = keys[action]
-        InputMap.action_add_event(action, key)
+        InputMap.action_add_event(action,key)
 
-func _box(pos: Vector3, size: Vector3, color: Color) -> void:
-    var mesh := MeshInstance3D.new()
-    var shape := BoxMesh.new()
-    shape.size = size
-    mesh.mesh = shape
-    var material := StandardMaterial3D.new()
-    material.albedo_color = color
-    mesh.material_override = material
-    mesh.position = pos
-    add_child(mesh)
-    var body := StaticBody3D.new()
-    var collision := CollisionShape3D.new()
-    var box_shape := BoxShape3D.new()
-    box_shape.size = size
-    collision.shape = box_shape
-    body.position = pos
-    body.add_child(collision)
-    add_child(body)
+func authority() -> bool:
+    return not multiplayer.has_multiplayer_peer() or multiplayer.is_server()
 
-func _build_world() -> void:
-    _box(Vector3(0,-0.2,0), Vector3(14,0.4,12), Color(0.28,0.25,0.23))
-    _box(Vector3(0,2.5,-6), Vector3(14,5,0.3), Color(0.33,0.28,0.24))
-    _box(Vector3(-7,2.5,0), Vector3(0.3,5,12), Color(0.33,0.28,0.24))
-    _box(Vector3(7,2.5,0), Vector3(0.3,5,12), Color(0.33,0.28,0.24))
-    _box(Vector3(0,2.5,6), Vector3(14,5,0.3), Color(0.33,0.28,0.24))
-    _box(Vector3(0,0.6,-2), Vector3(3,1.2,0.8), Color(0.3,0.18,0.12))
-    var light := OmniLight3D.new()
-    light.position = Vector3(0,3.7,0)
-    light.light_energy = 2.0
-    light.omni_range = 16
-    add_child(light)
-    var env := WorldEnvironment.new()
-    env.environment = Environment.new()
-    env.environment.background_mode = Environment.BG_COLOR
-    env.environment.background_color = Color(0.07,0.07,0.09)
-    add_child(env)
-    prop = RigidBody3D.new()
-    prop.position = Vector3(0,1.7,-2)
-    var mesh := MeshInstance3D.new()
-    var cube := BoxMesh.new()
-    cube.size = Vector3(0.35,0.35,0.35)
-    mesh.mesh = cube
-    prop.add_child(mesh)
-    var collider := CollisionShape3D.new()
-    var box_shape := BoxShape3D.new()
-    box_shape.size = cube.size
-    collider.shape = box_shape
-    prop.add_child(collider)
-    add_child(prop)
-    prop.freeze = true
-
-func _build_ui() -> void:
-    var canvas := CanvasLayer.new()
-    add_child(canvas)
-    var panel := VBoxContainer.new()
-    lobby_panel = panel
-    panel.position = Vector2(20,20)
-    canvas.add_child(panel)
-    status_label = Label.new()
-    status_label.text = "Hookah Bros | Offline"
-    panel.add_child(status_label)
-    ip_field = LineEdit.new()
-    ip_field.text = "127.0.0.1"
-    ip_field.custom_minimum_size = Vector2(300,45)
-    panel.add_child(ip_field)
-    var solo := Button.new()
-    solo.text = "Play solo (offline)"
-    solo.pressed.connect(_solo)
-    panel.add_child(solo)
-    var host := Button.new()
-    host.text = "Host LAN"
-    host.pressed.connect(_host)
-    panel.add_child(host)
-    var join := Button.new()
-    join.text = "Join IP"
-    join.pressed.connect(_join)
-    panel.add_child(join)
-    var action := Button.new()
-    action.text = "Pick / Throw"
-    action.position = Vector2(20,210)
-    if OS.has_feature("mobile"):
-        action.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-        action.position = Vector2(-210,-105)
-        action.custom_minimum_size = Vector2(190,75)
-    action.pressed.connect(_request_interact)
-    canvas.add_child(action)
-    move_hint = Label.new()
-    move_hint.text = "Drag left side to move | drag right side to look"
-    move_hint.position = Vector2(20, 320)
-    move_hint.visible = OS.has_feature("mobile")
-    canvas.add_child(move_hint)
-
-func _begin_play() -> void:
-    lobby_panel.visible = false
-    ip_field.release_focus()
-    Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
+func _settings_changed() -> void:
+    for p in players.values():
+        p.sensitivity = ui.sensitivity*0.0025
+    for child in world.get_children():
+        if child is OmniLight3D:
+            child.visible = ui.quality == 1
 
 func _solo() -> void:
-    if multiplayer.has_multiplayer_peer():
+    if active or connecting:
         return
+    session_kind="Одиночная игра"
+    active=true
     _spawn(1)
-    _begin_play()
-    status_label.text = "Solo test | WASD / touch"
+    ui.set_playing(true)
 
 func _host() -> void:
+    if active or connecting:
+        return
     var peer := ENetMultiplayerPeer.new()
     var error := peer.create_server(PORT, MAX_PLAYERS - 1)
     if error != OK:
-        status_label.text = "Host failed: %d" % error
+        ui.status.text="Не удалось создать комнату: %d" % error
         return
-    multiplayer.multiplayer_peer = peer
+    multiplayer.multiplayer_peer=peer
+    active=true
+    session_kind="LAN • UDP %d" % PORT
     _spawn(1)
-    _begin_play()
-    status_label.text = "Hosting LAN UDP %d" % PORT
+    ui.set_playing(true)
+    var addresses := PackedStringArray()
+    for address in IP.get_local_addresses():
+        if address.is_valid_ip_address() and not address.contains(":") and not address.begins_with("127."):
+            addresses.append(address)
+    ui.status.text="IP хоста: "+", ".join(addresses)
 
 func _join() -> void:
-    var peer := ENetMultiplayerPeer.new()
-    var error := peer.create_client(ip_field.text.strip_edges(), PORT)
-    if error != OK:
-        status_label.text = "Join failed: %d" % error
+    _join_ip(ui.ip.text)
+
+func _join_ip(address: String) -> void:
+    if active or connecting:
         return
-    multiplayer.multiplayer_peer = peer
-    status_label.text = "Connecting..."
+    if not address.is_valid_ip_address():
+        ui.status.text="Введите корректный IP-адрес хоста"
+        return
+    var peer := ENetMultiplayerPeer.new()
+    var error := peer.create_client(address,PORT)
+    if error != OK:
+        ui.status.text="Не удалось подключиться: %d" % error
+        return
+    multiplayer.multiplayer_peer=peer
+    connecting=true
+    connection_time=0
+    ui.status.text="Подключаемся…"
+    for prop in world.props:
+        prop.freeze=true
 
 func _on_connected() -> void:
-    status_label.text = "Connected"
-    _spawn(multiplayer.get_unique_id())
-    _begin_play()
+    connecting=false
+    active=true
+    session_kind="LAN • подключено"
+    ui.set_playing(true)
 
 func _on_connection_failed() -> void:
-    status_label.text = "Connection failed"
-    multiplayer.multiplayer_peer = null
+    _leave("Нет соединения: проверьте IP, Wi-Fi и свободные места")
 
 func _on_disconnected() -> void:
-    for id in players.keys():
-        players[id].queue_free()
+    _leave("Хост вышел. Комната закрыта")
+
+func _leave(message: String = "Сессия завершена") -> void:
+    active=false
+    connecting=false
+    if multiplayer.has_multiplayer_peer():
+        multiplayer.multiplayer_peer.close()
+    multiplayer.multiplayer_peer=null
+    for p in players.values():
+        p.queue_free()
     players.clear()
-    status_label.text = "Disconnected"
-    lobby_panel.visible = true
-    multiplayer.multiplayer_peer = null
+    hoses.clear()
+    cooldowns.clear()
+    action_times.clear()
+    input_times.clear()
+    for i in range(holders.size()):
+        holders[i]=0
+        var prop: RigidBody3D=world.props[i]
+        prop.freeze=false
+        prop.linear_velocity=Vector3.ZERO
+        prop.angular_velocity=Vector3.ZERO
+        prop.position=Vector3(-2.5+float(i%4)*1.5,0.5,1.7)
+    jump_pending=false
+    menu_camera.current=true
+    ui.set_playing(false)
+    ui.status.text=message
+
+func _spawn(id: int, spawn_position: Vector3 = Vector3.INF) -> void:
+    if players.has(id) or players.size() >= MAX_PLAYERS:
+        return
+    var p: HookahPlayer=PlayerScript.new()
+    p.name="Player_%d" % id
+    p.local_control=id==multiplayer.get_unique_id()
+    p.authoritative=authority()
+    p.position=spawn_position if spawn_position.is_finite() else world.spawns[players.size()]
+    add_child(p)
+    p.sensitivity=ui.sensitivity*0.0025
+    players[id]=p
 
 func _on_peer_connected(id: int) -> void:
-    if not multiplayer.is_server():
+    if not multiplayer.is_server() or not active:
         return
-    for existing in players.keys():
-        spawn_remote.rpc_id(id, existing)
-    spawn_remote.rpc(id)
-    _spawn(id)
-    if prop != null:
-        prop_state.rpc_id(id, prop.global_position, prop.linear_velocity, carried_by)
+    if players.size() >= MAX_PLAYERS:
+        multiplayer.multiplayer_peer.disconnect_peer(id)
+        return
+    # Choose an actually vacant spawn after a disconnect/rejoin.
+    var pos: Vector3=world.spawns[0]
+    for candidate in world.spawns:
+        var vacant := true
+        for p in players.values():
+            if p.position.distance_to(candidate) < 0.8:
+                vacant=false
+        if vacant:
+            pos=candidate
+            break
+    _spawn(id,pos)
+    for existing in players:
+        spawn_remote.rpc_id(id,existing,players[existing].position)
+    for existing in players:
+        if existing != 1 and existing != id:
+            spawn_remote.rpc_id(existing,id,pos)
 
 func _on_peer_disconnected(id: int) -> void:
-    if multiplayer.is_server():
-        despawn_remote.rpc(id)
-    _despawn(id)
-
-func _spawn(id: int) -> void:
-    if players.has(id):
+    if not authority():
         return
-    var player: HookahPlayer = PlayerScript.new()
-    player.name = "Player_%d" % id
-    player.local_control = id == multiplayer.get_unique_id()
-    player.position = Vector3((id % 4) * 1.2 - 2.0,0,3)
-    add_child(player)
-    players[id] = player
+    for i in range(holders.size()):
+        if holders[i] == id:
+            _release(i,id,false)
+    hoses.erase(id)
+    action_times.erase(id)
+    cooldowns.erase(id)
+    input_times.erase(id)
+    if players.has(id):
+        players[id].queue_free()
+        players.erase(id)
+    despawn_remote.rpc(id)
 
-func _despawn(id: int) -> void:
+@rpc("authority","call_remote","reliable")
+func spawn_remote(id: int,pos: Vector3) -> void:
+    _spawn(id,pos)
+
+@rpc("authority","call_remote","reliable")
+func despawn_remote(id: int) -> void:
     if players.has(id):
         players[id].queue_free()
         players.erase(id)
 
-@rpc("authority", "call_remote", "reliable")
-func spawn_remote(id: int) -> void:
-    _spawn(id)
-
-@rpc("authority", "call_remote", "reliable")
-func despawn_remote(id: int) -> void:
-    _despawn(id)
-
 func _process(delta: float) -> void:
-    if Input.is_action_just_pressed("interact"):
-        _request_interact()
-    if not multiplayer.has_multiplayer_peer():
+    if connecting:
+        connection_time+=delta
+        if connection_time > 10:
+            _leave("Таймаут: хост недоступен или комната заполнена")
+    if not active:
         return
-    elapsed += delta
-    if elapsed >= 0.05:
-        elapsed = 0.0
-        var id := multiplayer.get_unique_id()
-        if players.has(id):
-            var player: HookahPlayer = players[id]
-            if multiplayer.is_server():
-                state_remote.rpc(id, player.global_position, player.rotation.y, player.camera.rotation.x)
-            else:
-                submit_state.rpc_id(1, player.global_position, player.rotation.y, player.camera.rotation.x)
-        if multiplayer.is_server():
-            prop_state.rpc(prop.global_position, prop.linear_velocity, carried_by)
+    var id := multiplayer.get_unique_id()
+    if players.has(id):
+        var p: HookahPlayer=players[id]
+        if not ui.paused:
+            p.look(ui.look_delta)
+            for kind in ["jump","interact","throw","use"]:
+                if Input.is_action_just_pressed(kind):
+                    _request_action(kind)
+        ui.look_delta=Vector2.ZERO
+        _update_hint(p)
+    elapsed+=delta
+    if elapsed < 0.05:
+        return
+    elapsed=0
+    if players.has(id):
+        var p: HookahPlayer=players[id]
+        var axis: Vector2=Input.get_vector("move_left","move_right","move_forward","move_back")+ui.move_axis
+        if ui.paused:
+            axis=Vector2.ZERO
+            jump_pending=false
+        if authority():
+            p.accept_input(axis,p.rotation.y,p.camera.rotation.x,jump_pending)
+        else:
+            submit_input.rpc_id(1,axis.limit_length(1),p.rotation.y,p.camera.rotation.x,jump_pending)
+        jump_pending=false
+    if multiplayer.has_multiplayer_peer() and multiplayer.is_server():
+        var states: Array=[]
+        for pid in players:
+            var p: HookahPlayer=players[pid]
+            states.append([pid,p.position,p.rotation.y,p.camera.rotation.x])
+        var objects: Array=[]
+        for i in range(world.props.size()):
+            var prop: RigidBody3D=world.props[i]
+            objects.append([prop.transform,holders[i]])
+        snapshot.rpc(states,objects,hoses)
 
-@rpc("any_peer", "call_remote", "unreliable")
-func submit_state(pos: Vector3, yaw: float, pitch: float) -> void:
+@rpc("any_peer","call_remote","unreliable_ordered",1)
+func submit_input(axis: Vector2,yaw: float,pitch: float,jump: bool) -> void:
     if not multiplayer.is_server():
         return
     var id := multiplayer.get_remote_sender_id()
-    if not players.has(id):
+    if not players.has(id) or not axis.is_finite() or not is_finite(yaw) or not is_finite(pitch):
         return
-    var player: HookahPlayer = players[id]
-    if not pos.is_finite() or not is_finite(yaw) or not is_finite(pitch):
+    var now := Time.get_ticks_msec()
+    if now-int(input_times.get(id,0)) < 25:
         return
-    if pos.distance_to(player.global_position) > 3.0 or absf(pitch) > 1.35:
-        return
-    player.global_position = pos
-    player.sync_target = pos
-    player.rotation.y = yaw
-    player.camera.rotation.x = pitch
-    state_remote.rpc(id, pos, yaw, pitch)
+    input_times[id]=now
+    players[id].accept_input(axis.limit_length(1.0),wrapf(yaw,-PI,PI),clampf(pitch,-1.3,1.3),jump)
 
-@rpc("authority", "call_remote", "unreliable")
-func state_remote(id: int, pos: Vector3, yaw: float, pitch: float) -> void:
-    if id == multiplayer.get_unique_id() or not players.has(id):
-        return
-    var player: HookahPlayer = players[id]
-    player.sync_target = pos
-    player.rotation.y = yaw
-    player.camera.rotation.x = pitch
+@rpc("authority","call_remote","unreliable_ordered",2)
+func snapshot(states: Array,objects: Array,hose_states: Dictionary) -> void:
+    for state in states:
+        if players.has(state[0]):
+            var p: HookahPlayer=players[state[0]]
+            p.sync_target=state[1]
+            p.target_yaw=state[2]
+            p.target_pitch=state[3]
+    for i in range(mini(objects.size(),world.props.size())):
+        var prop: RigidBody3D=world.props[i]
+        prop.freeze=true
+        prop.transform=objects[i][0]
+        holders[i]=objects[i][1]
+    hoses=hose_states
+
+func target(p: HookahPlayer) -> Object:
+    p.ray.force_raycast_update()
+    return p.ray.get_collider() if p.ray.is_colliding() else null
+
+func _update_hint(p: HookahPlayer) -> void:
+    var text := "%s • %d/4" % [session_kind,players.size()]
+    if holders.has(multiplayer.get_unique_id()):
+        text+=" | Q: бросить"
+    elif hoses.has(multiplayer.get_unique_id()):
+        text+=" | F: дым • E: отпустить шланг"
+    else:
+        var object := target(p)
+        if object != null:
+            if object.has_meta("prop_index"):
+                text+=" | E: взять "+str(object.get_meta("title"))
+            elif object.has_meta("hookah_index"):
+                text+=" | E: использовать кальян"
+    ui.hint.text=text
 
 func _request_interact() -> void:
-    if not multiplayer.has_multiplayer_peer():
-        if players.has(1):
-            _interact(1)
+    _request_action("interact")
+
+func _request_action(kind: String) -> void:
+    if not active or ui.paused:
         return
-    if multiplayer.is_server():
-        _interact(1)
+    if kind == "jump":
+        jump_pending=true
+    elif authority():
+        _action(multiplayer.get_unique_id(),kind)
     else:
-        interact_request.rpc_id(1)
+        action_request.rpc_id(1,kind)
 
-@rpc("any_peer", "call_remote", "reliable")
-func interact_request() -> void:
+@rpc("any_peer","call_remote","reliable",3)
+func action_request(kind: String) -> void:
     if multiplayer.is_server():
-        _interact(multiplayer.get_remote_sender_id())
+        _action(multiplayer.get_remote_sender_id(),kind)
 
-func _interact(id: int) -> void:
-    if not players.has(id):
-        return
-    var player: HookahPlayer = players[id]
-    if carried_by == id:
-        carried_by = 0
-        prop.freeze = false
-        prop.linear_velocity = -player.global_transform.basis.z * 5.0 + Vector3.UP * 2.0
-    elif carried_by == 0 and player.global_position.distance_to(prop.global_position) < 2.5:
-        carried_by = id
-        prop.freeze = true
+func _action(id: int,kind: String) -> bool:
+    if not players.has(id) or kind not in ["interact","throw","use"]:
+        return false
+    var now := Time.get_ticks_msec()
+    if now-int(action_times.get(id,-1000)) < 180:
+        return false
+    action_times[id]=now
+    var p: HookahPlayer=players[id]
+    if kind == "throw":
+        var index := holders.find(id)
+        if index >= 0:
+            _release(index,id,true)
+            return true
+        return false
+    if kind == "use" and hoses.has(id):
+        var hookah: StaticBody3D=world.hookahs[int(hoses[id])]
+        if p.position.distance_to(hookah.position) > 3.0:
+            hoses.erase(id)
+            return false
+        if now-int(cooldowns.get(id,-3000)) < 2000:
+            return false
+        cooldowns[id]=now
+        var pos: Vector3=p.camera.global_position-p.camera.global_basis.z*0.5
+        smoke_event(pos,id)
+        if multiplayer.has_multiplayer_peer():
+            smoke_event.rpc(pos,id)
+        return true
+    if kind != "interact":
+        return false
+    if hoses.has(id):
+        hoses.erase(id)
+        return true
+    if holders.has(id):
+        return false
+    var object := target(p)
+    if object == null:
+        return false
+    if object.has_meta("prop_index"):
+        var index: int=object.get_meta("prop_index")
+        if holders[index] != 0:
+            return false
+        holders[index]=id
+        object.freeze=true
+        return true
+    if object.has_meta("hookah_index"):
+        var index: int=object.get_meta("hookah_index")
+        if hoses.values().has(index):
+            return false
+        hoses[id]=index
+        return true
+    return false
 
-@rpc("authority", "call_remote", "unreliable")
-func prop_state(pos: Vector3, vel: Vector3, holder: int) -> void:
-    carried_by = holder
-    prop.freeze = holder != 0
-    prop.global_position = pos
-    prop.linear_velocity = vel
+func _release(index: int,id: int,thrown: bool) -> void:
+    var prop: RigidBody3D=world.props[index]
+    holders[index]=0
+    prop.freeze=false
+    if players.has(id):
+        prop.linear_velocity=-players[id].camera.global_basis.z*(6.0 if thrown else 0.0)+Vector3.UP
+    else:
+        prop.linear_velocity=Vector3.ZERO
+    prop.angular_velocity=Vector3(1,2,0) if thrown else Vector3.ZERO
 
 func _physics_process(_delta: float) -> void:
-    if (multiplayer.is_server() or not multiplayer.has_multiplayer_peer()) and carried_by != 0 and players.has(carried_by):
-        var player: HookahPlayer = players[carried_by]
-        prop.global_position = player.global_position + Vector3.UP * 1.25 - player.global_transform.basis.z * 0.9
-
-func _input(event: InputEvent) -> void:
-    if not OS.has_feature("mobile"):
+    if not authority():
         return
-    var size := get_viewport().get_visible_rect().size
-    if event is InputEventScreenTouch:
-        if event.pressed and event.position.x < size.x * 0.45 and event.position.y > size.y * 0.45:
-            touch_move_id = event.index
-            touch_origin = event.position
-        elif not event.pressed and event.index == touch_move_id:
-            touch_move_id = -1
-            var id := multiplayer.get_unique_id()
-            if players.has(id):
-                players[id].movement = Vector2.ZERO
-    elif event is InputEventScreenDrag and event.index == touch_move_id:
-        var id := multiplayer.get_unique_id()
-        if players.has(id):
-            players[id].movement = ((event.position - touch_origin) / 65.0).limit_length(1.0)
+    for i in range(world.props.size()):
+        var prop: RigidBody3D=world.props[i]
+        if holders[i] != 0 and players.has(holders[i]):
+            var p: HookahPlayer=players[holders[i]]
+            var start := p.camera.global_position
+            var end := start-p.camera.global_basis.z*0.9
+            # Sweep the entire held object's box; stop before walls and furniture.
+            var query := PhysicsShapeQueryParameters3D.new()
+            query.shape=prop.get_child(prop.get_child_count()-1).shape
+            query.transform=Transform3D(Basis.IDENTITY,start)
+            query.motion=end-start
+            query.collision_mask=1
+            var fractions := get_world_3d().direct_space_state.cast_motion(query)
+            var fraction := fractions[0] if not fractions.is_empty() else 0.0
+            prop.global_position=start+(end-start)*maxf(0,fraction-0.05)
+            prop.rotation=Vector3.ZERO
+        elif prop.position.y < -3:
+            prop.position=Vector3(0,1,1)
+            prop.linear_velocity=Vector3.ZERO
+        if prop.linear_velocity.length() > 12:
+            prop.linear_velocity=prop.linear_velocity.limit_length(12)
+    for id in hoses.keys():
+        if not players.has(id) or players[id].position.distance_to(world.hookahs[int(hoses[id])].position)>3:
+            hoses.erase(id)
+
+@rpc("authority","call_remote","reliable",3)
+func smoke_event(pos: Vector3,id: int) -> void:
+    world.smoke(pos)
+    if players.has(id):
+        var p: HookahPlayer=players[id]
+        var tween := create_tween()
+        tween.tween_property(p.camera,"fov",78.0,0.15)
+        tween.tween_property(p.camera,"fov",75.0,0.3)
