@@ -7,9 +7,17 @@ def adb(*args):
 def alive():
     assert adb('shell','pidof','com.hookahbros.prototype').strip(), 'Android app exited'
 adb('install','-r','build/HookahBros-emulator.apk')
+adb('shell','settings','put','secure','immersive_mode_confirmations','confirmed')
 adb('logcat','-c')
 adb('shell','monkey','-p','com.hookahbros.prototype','-c','android.intent.category.LAUNCHER','1')
-time.sleep(8);alive()
+for attempt in range(60):
+    time.sleep(1)
+    text=adb('logcat','-d').decode(errors='replace')
+    if 'HB_MENU_READY' in text: break
+else:
+    (out/'android-logcat.txt').write_text(text)
+    raise AssertionError('Android menu did not initialize within 60 seconds')
+alive();time.sleep(2)
 def capture(name):
     data=adb('exec-out','screencap','-p');(out/name).write_bytes(data)
     assert data.startswith(b'\x89PNG'), 'Screenshot invalid'
@@ -28,6 +36,8 @@ adb('shell','input','keyevent','3');time.sleep(1)
 adb('shell','monkey','-p','com.hookahbros.prototype','1');time.sleep(2);alive()
 logs=adb('logcat','-d').decode(errors='replace');(out/'android-logcat.txt').write_text(logs)
 assert 'HB_SOLO_READY' in logs,'Solo session did not start'
+assert 'HB_JUMP_REQUEST' in logs,'Jump control did not fire'
 assert 'HB_PAUSE_OPEN' in logs,'Pause menu did not open'
-assert not re.search(r'FATAL EXCEPTION|Fatal signal|SCRIPT ERROR:|Parse Error:',logs), 'Crash/script error in Android logcat'
+assert not re.search(r'FATAL EXCEPTION|Fatal signal|SCRIPT ERROR:|Parse Error:',logs)
+assert not any('godot' in line and 'ERROR:' in line for line in logs.splitlines()), 'Crash/script error in Android logcat'
 print('ANDROID_RUNTIME_OK: install, menu, solo, controls, pause and resume')

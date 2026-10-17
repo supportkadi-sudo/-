@@ -40,6 +40,7 @@ func _ready() -> void:
     ui.leave.connect(_leave)
     ui.action.connect(_request_action)
     ui.changed.connect(_settings_changed)
+    print("HB_MENU_READY")
     _settings_changed()
     multiplayer.peer_connected.connect(_on_peer_connected)
     multiplayer.peer_disconnected.connect(_on_peer_disconnected)
@@ -313,6 +314,7 @@ func _request_action(kind: String) -> void:
     if not active or ui.paused:
         return
     if kind == "jump":
+        print("HB_JUMP_REQUEST")
         jump_pending=true
     elif authority():
         _action(local_id(),kind)

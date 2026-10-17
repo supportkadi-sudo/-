@@ -19,6 +19,5 @@ func _configure() -> void:
     settings.set_setting("export/android/debug_keystore", OS.get_environment("HOME").path_join(".android/debug.keystore"))
     settings.set_setting("export/android/debug_keystore_user", "androiddebugkey")
     settings.set_setting("export/android/debug_keystore_pass", "android")
-    settings.save()
     print("ANDROID_EXPORT_SETTINGS_OK sdk=", sdk, " java=", java)
     quit(0)
