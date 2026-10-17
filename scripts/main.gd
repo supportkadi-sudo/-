@@ -331,16 +331,16 @@ func _update_hint(p: HookahPlayer) -> void:
     var text := "%s • %d/4" % [session_kind,players.size()]
     var mobile := OS.has_feature("mobile")
     if holders.has(local_id()):
-        text+=" | %s: бросить" % ("Кнопка «Бросить»" if mobile else "Q")
+        text+=" | Нажми «Бросить»" if mobile else " | Q: бросить"
     elif hoses.has(local_id()):
-        text+=" | %s: дым • %s: отпустить шланг" % (["«Использовать»", "«Взять / шланг»"] if mobile else ["F", "E"])
+        text+=" | «Использовать»: дым • «Взять / шланг»: отпустить" if mobile else " | F: дым • E: отпустить шланг"
     else:
         var object := target(p)
         if object != null:
             if object.has_meta("prop_index"):
-                text+=" | %s: взять %s" % (["«Взять / шланг»", str(object.get_meta("title"))] if mobile else ["E", str(object.get_meta("title"))])
+                text+=" | Нажми «Взять / шланг», чтобы взять %s" % str(object.get_meta("title")) if mobile else " | E: взять %s" % str(object.get_meta("title"))
             elif object.has_meta("hookah_index"):
-                text+=" | %s: использовать кальян" % ("«Взять / шланг»" if mobile else "E")
+                text+=" | «Взять / шланг»: использовать кальян" if mobile else " | E: использовать кальян"
         elif mobile:
             text+=" | Наведи прицел на предмет"
     ui.hint.text=text
@@ -376,6 +376,8 @@ func _action(id: int,kind: String) -> bool:
         var index := holders.find(id)
         if index >= 0:
             _release(index,id,true)
+            if id == local_id():
+                _update_hint(p)
             if OS.is_debug_build():
                 print("HB_PROP_THROWN")
             return true
@@ -409,6 +411,8 @@ func _action(id: int,kind: String) -> bool:
             return false
         holders[index]=id
         object.freeze=true
+        if id == local_id():
+            _update_hint(p)
         if OS.is_debug_build():
             print("HB_PROP_PICKED:",object.get_meta("title"))
         return true

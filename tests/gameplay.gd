@@ -40,6 +40,7 @@ func run() -> void:
     check(main.ui.hint.text.contains("взять Бутылка"),"mobile interaction hint names the target prop")
     main.ui.action.emit("interact")
     check(main.holders[4]==1 and room_prop.freeze,"mobile action signal picks up room prop")
+    check(main.ui.hint.text.contains("Q: бросить"),"HUD switches to the throw hint after pickup")
     await wait(0.2)
     main.ui.action.emit("throw")
     check(main.holders[4]==0 and not room_prop.freeze,"mobile action signal throws held prop")
