@@ -27,6 +27,8 @@ var solo_button: Button
 var host_button: Button
 var join_button: Button
 var exit_button: Button
+var jump_button: Button
+var pause_button: Button
 
 func _ready() -> void:
     var cfg := ConfigFile.new()
@@ -115,8 +117,8 @@ func _ready() -> void:
     cross.text = "+"
     cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
     hud.add_child(cross)
-    var pause := button(hud,"Меню",toggle_pause)
-    pause.position = Vector2(20,15)
+    pause_button = button(hud,"Меню",toggle_pause)
+    pause_button.position = Vector2(20,15)
     var buttons := VBoxContainer.new()
     buttons.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
     buttons.offset_left = -205
@@ -126,7 +128,9 @@ func _ready() -> void:
     hud.add_child(buttons)
     for pair in [["Прыжок","jump"],["Взять / шланг","interact"],["Бросить","throw"],["Использовать","use"]]:
         var kind: String = pair[1]
-        button(buttons,pair[0],func(): action.emit(kind))
+        var control := button(buttons,pair[0],func(): action.emit(kind))
+        if kind == "jump":
+            jump_button=control
     joystick = Control.new()
     joystick.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
     joystick.position = Vector2(125,-130)
@@ -136,6 +140,7 @@ func _ready() -> void:
         joystick.draw_circle(move_axis*48,25,Color(0.82,0.74,0.57,0.55)))
     hud.add_child(joystick)
     set_playing(false)
+    get_viewport().size_changed.connect(func(): call_deferred("_debug_layout"))
     save()
 
 func button(parent: Node, text: String, callback: Callable) -> Button:
@@ -158,6 +163,18 @@ func slider(parent: Node, text: String, low: float, high: float, value: float, c
     s.value=value
     s.value_changed.connect(callback)
     parent.add_child(s)
+
+func _debug_layout() -> void:
+    if not OS.is_debug_build():
+        return
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var layout := {}
+    var screen := get_viewport().get_screen_transform()
+    for entry in [["solo",solo_button],["jump",jump_button],["pause",pause_button]]:
+        var point: Vector2=screen*entry[1].get_global_rect().get_center()
+        layout[entry[0]]=[point.x,point.y]
+    print("HB_UI_LAYOUT:",JSON.stringify(layout))
 
 func _toggle_settings() -> void:
     settings.visible = not settings.visible
@@ -202,6 +219,7 @@ func set_playing(value: bool) -> void:
     menu.visible=not value
     hud.visible=value
     reset_touch()
+    call_deferred("_debug_layout")
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if value and not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
 
 func toggle_pause() -> void:

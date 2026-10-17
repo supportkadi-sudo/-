@@ -1,5 +1,5 @@
 """Install and exercise a separately exported x86_64 build of identical game code."""
-import re,subprocess,time
+import json,re,subprocess,time
 from pathlib import Path
 out=Path('diagnostics');out.mkdir(exist_ok=True)
 def adb(*args):
@@ -23,15 +23,20 @@ def capture(name):
     assert data.startswith(b'\x89PNG'), 'Screenshot invalid'
     import struct
     return struct.unpack('>II',data[16:24])
+def tap_control(name):
+    logs=adb('logcat','-d').decode(errors='replace')
+    lines=[line.split('HB_UI_LAYOUT:',1)[1] for line in logs.splitlines() if 'HB_UI_LAYOUT:' in line]
+    assert lines,'Game did not report its actual debug UI layout'
+    point=json.loads(lines[-1])[name]
+    adb('shell','input','tap',str(round(point[0])),str(round(point[1])))
 w,h=capture('android-menu.png')
 assert w>h,'Game must launch landscape'
-# The main menu panel is centered; its first action is directly below the title.
-adb('shell','input','tap',str(int(w*.5)),str(int(h*.34)))
+tap_control('solo')
 time.sleep(5);alive();capture('android-solo.png')
-# Exercise the jump button, right-side look drag and top-left pause button.
-adb('shell','input','tap',str(int(w*.91)),str(int(h*.76)))
+# Exercise touch jump, drag camera and pause; the runtime emits truthful state markers.
+tap_control('jump')
 adb('shell','input','swipe',str(int(w*.65)),str(int(h*.45)),str(int(w*.73)),str(int(h*.42)),'300')
-adb('shell','input','tap',str(int(w*.045)),str(int(h*.04)))
+tap_control('pause')
 time.sleep(2);alive();capture('android-pause.png')
 adb('shell','input','keyevent','3');time.sleep(1)
 adb('shell','monkey','-p','com.hookahbros.prototype','1');time.sleep(2);alive()
