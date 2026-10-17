@@ -25,12 +25,13 @@ def capture(name):
     return struct.unpack('>II',data[16:24])
 w,h=capture('android-menu.png')
 assert w>h,'Game must launch landscape'
-adb('shell','input','tap',str(int(w*.5)),str(int(h*.26)))
+# The main menu panel is centered; its first action is directly below the title.
+adb('shell','input','tap',str(int(w*.5)),str(int(h*.34)))
 time.sleep(5);alive();capture('android-solo.png')
-# Exercise touch jump, drag camera and pause; the runtime emits truthful state markers.
-adb('shell','input','tap',str(int(w*.91)),str(int(h*.63)))
+# Exercise the jump button, right-side look drag and top-left pause button.
+adb('shell','input','tap',str(int(w*.91)),str(int(h*.76)))
 adb('shell','input','swipe',str(int(w*.65)),str(int(h*.45)),str(int(w*.73)),str(int(h*.42)),'300')
-adb('shell','input','tap',str(int(w*.07)),str(int(h*.055)))
+adb('shell','input','tap',str(int(w*.045)),str(int(h*.04)))
 time.sleep(2);alive();capture('android-pause.png')
 adb('shell','input','keyevent','3');time.sleep(1)
 adb('shell','monkey','-p','com.hookahbros.prototype','1');time.sleep(2);alive()
