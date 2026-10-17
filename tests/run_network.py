@@ -5,9 +5,9 @@ root=Path(__file__).resolve().parents[1]
 godot=os.environ.get('GODOT','godot')
 logs=root/'diagnostics'; logs.mkdir(exist_ok=True)
 processes=[]
-def launch(role,name):
+def launch(role,name,script='network'):
     file=(logs/f'network-{name}.log').open('w')
-    p=subprocess.Popen([godot,'--headless','--path',str(root),'--script','res://tests/network.gd','--',role],stdout=file,stderr=subprocess.STDOUT)
+    p=subprocess.Popen([godot,'--headless','--path',str(root),'--script',f'res://tests/{script}.gd','--',role],stdout=file,stderr=subprocess.STDOUT)
     processes.append((p,file,name))
 try:
     launch('host','host');time.sleep(0.8)
@@ -17,6 +17,13 @@ try:
     failed=[]
     for p,f,name in processes:
         code=p.wait(timeout=35);f.close()
+        text=(logs/f'network-{name}.log').read_text()
+        print(name,code,text)
+        if code or 'ERROR:' in text: failed.append(name)
+    launch('host','objects-host','net_objects');time.sleep(0.7)
+    launch('client','objects-client','net_objects')
+    for p,f,name in processes[-2:]:
+        code=p.wait(timeout=20);f.close()
         text=(logs/f'network-{name}.log').read_text()
         print(name,code,text)
         if code or 'ERROR:' in text: failed.append(name)

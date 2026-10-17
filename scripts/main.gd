@@ -19,6 +19,7 @@ var connecting := false
 var connection_time := 0.0
 var jump_pending := false
 var session_kind := ""
+var smoke_events := 0
 var menu_camera: Camera3D
 
 func _ready() -> void:
@@ -71,6 +72,7 @@ func _settings_changed() -> void:
 func _solo() -> void:
     if active or connecting:
         return
+    print("HB_SOLO_READY")
     session_kind="Одиночная игра"
     active=true
     _spawn(1)
@@ -414,6 +416,7 @@ func _physics_process(_delta: float) -> void:
 
 @rpc("authority","call_remote","reliable",3)
 func smoke_event(pos: Vector3,id: int) -> void:
+    smoke_events+=1
     world.smoke(pos)
     if players.has(id):
         var p: HookahPlayer=players[id]

@@ -190,6 +190,8 @@ func toggle_pause() -> void:
     if not playing:
         return
     paused=not paused
+    if paused:
+        print("HB_PAUSE_OPEN")
     menu.visible=paused
     reset_touch()
     Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if not paused and not OS.has_feature("mobile") else Input.MOUSE_MODE_VISIBLE
