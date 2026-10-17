@@ -290,21 +290,48 @@ func snapshot(states: Array,objects: Array,hose_states: Dictionary) -> void:
 
 func target(p: HookahPlayer) -> Object:
     p.ray.force_raycast_update()
-    return p.ray.get_collider() if p.ray.is_colliding() else null
+    if p.ray.is_colliding():
+        var ray_object := p.ray.get_collider()
+        if _is_interactable(ray_object):
+            return ray_object
+
+    p.aim_cast.force_shapecast_update()
+    var nearest: Object = null
+    var nearest_distance := INF
+    for index in range(p.aim_cast.get_collision_count()):
+        var collider := p.aim_cast.get_collider(index)
+        var distance := p.camera.global_position.distance_to(p.aim_cast.get_collision_point(index))
+        if distance < nearest_distance:
+            nearest = collider
+            nearest_distance = distance
+
+    if not _is_interactable(nearest):
+        return null
+    # Keep nearby walls and furniture authoritative: assistance can widen an
+    # object's hit area, but cannot select it through a closer ray obstruction.
+    if p.ray.is_colliding() and p.camera.global_position.distance_to(p.ray.get_collision_point()) < nearest_distance - 0.08:
+        return null
+    return nearest
+
+func _is_interactable(object: Object) -> bool:
+    return object is Node and (object.has_meta("prop_index") or object.has_meta("hookah_index"))
 
 func _update_hint(p: HookahPlayer) -> void:
     var text := "%s • %d/4" % [session_kind,players.size()]
+    var mobile := OS.has_feature("mobile")
     if holders.has(local_id()):
-        text+=" | Q: бросить"
+        text+=" | %s: бросить" % ("Кнопка «Бросить»" if mobile else "Q")
     elif hoses.has(local_id()):
-        text+=" | F: дым • E: отпустить шланг"
+        text+=" | %s: дым • %s: отпустить шланг" % (["«Использовать»", "«Взять / шланг»"] if mobile else ["F", "E"])
     else:
         var object := target(p)
         if object != null:
             if object.has_meta("prop_index"):
-                text+=" | E: взять "+str(object.get_meta("title"))
+                text+=" | %s: взять %s" % (["«Взять / шланг»", str(object.get_meta("title"))] if mobile else ["E", str(object.get_meta("title"))])
             elif object.has_meta("hookah_index"):
-                text+=" | E: использовать кальян"
+                text+=" | %s: использовать кальян" % ("«Взять / шланг»" if mobile else "E")
+        elif mobile:
+            text+=" | Наведи прицел на предмет"
     ui.hint.text=text
 
 func _request_interact() -> void:

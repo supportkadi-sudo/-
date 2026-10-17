@@ -23,11 +23,27 @@ func run() -> void:
     check(main.players.size()==1,"solo creates one player")
     var p: CharacterBody3D=main.players[1]
     check(p.is_on_floor() and absf(p.position.y)<0.15,"spawn and gravity settle on floor")
+    # Exercise selection and the same UI signal used by the mobile action button
+    # against a prop in its actual room position, with a slight aim offset.
+    var room_prop: RigidBody3D=main.world.props[6]
+    await wait(1.0)
+    p.camera.look_at(room_prop.global_position+Vector3(0.30,0.04,0))
+    await physics_frame
+    check(main.target(p)==room_prop,"touch-friendly aim selects a nearby room prop")
+    main._update_hint(p)
+    check(main.ui.hint.text.contains("взять Коробка"),"mobile interaction hint names the target prop")
+    main.ui.action.emit("interact")
+    check(main.holders[6]==1 and room_prop.freeze,"mobile action signal picks up room prop")
+    await wait(0.2)
+    main.ui.action.emit("throw")
+    check(main.holders[6]==0 and not room_prop.freeze,"mobile action signal throws held prop")
     main.jump_pending=true
     await wait(0.2)
     check(p.position.y>0.4,"jump leaves floor")
     await wait(1)
     check(p.is_on_floor(),"jump lands")
+    p.rotation.y=0
+    p.camera.rotation=Vector3.ZERO
     # Place a real rigid object on the camera ray; exercise authoritative ray selection.
     var prop: RigidBody3D=main.world.props[0]
     prop.freeze=true
