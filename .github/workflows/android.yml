@@ -38,7 +38,9 @@ jobs:
       - name: Configure Godot Android SDK paths
         run: godot --headless --editor --path . --script res://tests/configure_android.gd
       - name: Import resources
-        run: godot --headless --editor --path . --import --quit
+        run: |
+          mkdir -p diagnostics
+          godot --headless --editor --path . --import --quit 2>&1 | tee diagnostics/import.log
       - name: Export unsigned production-free debug APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
@@ -46,8 +48,24 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          godot --headless --verbose --path . --export-debug Android build/HookahBros-debug.apk
+          mkdir -p diagnostics
+          godot --headless --verbose --path . --export-debug Android build/HookahBros-debug.apk 2>&1 | tee diagnostics/export.log
           test -s build/HookahBros-debug.apk
+      - name: Add run summary
+        if: always()
+        run: |
+          echo '## Hookah Bros Android build' >> "$GITHUB_STEP_SUMMARY"
+          echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download the diagnostic-logs artifact if export failed.' >> "$GITHUB_STEP_SUMMARY"
+          if [ -s build/HookahBros-debug.apk ]; then echo 'APK created.' >> "$GITHUB_STEP_SUMMARY"; else echo 'APK not created.' >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-diagnostic-logs
+          path: diagnostics/
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
