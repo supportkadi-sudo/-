@@ -54,7 +54,7 @@ func _ready() -> void:
     # turning interaction into a wide, wall-penetrating proximity check.
     aim_cast = ShapeCast3D.new()
     var aim_shape := SphereShape3D.new()
-    aim_shape.radius = 0.18
+    aim_shape.radius = 0.25
     aim_cast.shape = aim_shape
     aim_cast.target_position = ray.target_position
     aim_cast.collision_mask = ray.collision_mask

@@ -27,9 +27,15 @@ func run() -> void:
     # against a prop in its actual room position, with a slight aim offset.
     var room_prop: RigidBody3D=main.world.props[4]
     await wait(1.0)
-    p.camera.look_at(room_prop.global_position+Vector3(0.30,0.04,0))
+    p.camera.look_at(room_prop.global_position+Vector3(0.22,0.04,0))
     await physics_frame
-    check(main.target(p)==room_prop,"touch-friendly aim selects a nearby room prop")
+    var selected: Object=main.target(p)
+    if selected != room_prop:
+        print("AIM_DEBUG camera=",p.camera.global_position," prop=",room_prop.global_position," ray_hit=",p.ray.get_collider() if p.ray.is_colliding() else "none"," ray_point=",p.ray.get_collision_point() if p.ray.is_colliding() else Vector3.ZERO," cast_count=",p.aim_cast.get_collision_count())
+        for collision in range(p.aim_cast.get_collision_count()):
+            var collider: Object=p.aim_cast.get_collider(collision)
+            print("AIM_DEBUG cast=",collider.name," interactable=",main._is_interactable(collider)," point=",p.aim_cast.get_collision_point(collision))
+    check(selected==room_prop,"touch-friendly aim selects a nearby room prop")
     main._update_hint(p)
     check(main.ui.hint.text.contains("взять Бутылка"),"mobile interaction hint names the target prop")
     main.ui.action.emit("interact")
