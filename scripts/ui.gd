@@ -23,6 +23,10 @@ var quality := 1
 var playing := false
 var paused := false
 var joystick: Control
+var solo_button: Button
+var host_button: Button
+var join_button: Button
+var exit_button: Button
 
 func _ready() -> void:
     var cfg := ConfigFile.new()
@@ -62,17 +66,21 @@ func _ready() -> void:
     subtitle.text = "v0.1.0 • Дым коромыслом"
     subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     column.add_child(subtitle)
-    button(column,"Играть одному",func(): solo.emit())
-    button(column,"Создать комнату • LAN",func(): host.emit())
+    solo_button = button(column,"Играть одному",func():
+        if playing:
+            toggle_pause()
+        else:
+            solo.emit())
+    host_button = button(column,"Создать комнату • LAN",func(): host.emit())
     ip = LineEdit.new()
     ip.placeholder_text = "IP хоста, например 192.168.1.5"
     ip.text = "127.0.0.1"
     ip.custom_minimum_size.y = 44
     column.add_child(ip)
-    button(column,"Подключиться",func(): join.emit(ip.text.strip_edges()))
+    join_button = button(column,"Подключиться",func(): join.emit(ip.text.strip_edges()))
     var settings_button := button(column,"Настройки",_toggle_settings)
     settings_button.name = "SettingsButton"
-    button(column,"Вернуться / в меню",func():
+    exit_button = button(column,"Выход",func():
         if playing:
             leave.emit()
         else:
@@ -158,6 +166,15 @@ func _toggle_settings() -> void:
         if child == settings or child.get_index() < 2 or child.name == "SettingsButton":
             continue
         child.visible = not settings.visible
+    if not settings.visible:
+        _refresh_menu()
+
+func _refresh_menu() -> void:
+    solo_button.text = "Продолжить" if playing else "Играть одному"
+    host_button.visible = not playing
+    join_button.visible = not playing
+    ip.visible = not playing
+    exit_button.text = "В главное меню" if playing else "Выход"
 
 func save() -> void:
     var cfg := ConfigFile.new()
@@ -181,6 +198,7 @@ func set_playing(value: bool) -> void:
     paused=false
     if settings.visible:
         _toggle_settings()
+    _refresh_menu()
     menu.visible=not value
     hud.visible=value
     reset_touch()

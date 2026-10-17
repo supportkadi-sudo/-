@@ -71,5 +71,15 @@ class ProjectSmokeTests(unittest.TestCase):
         self.assertIn('main._action(1,"interact")', gameplay_test)
         self.assertIn("res://tests/gameplay.gd", workflow)
 
+    def test_android_runtime_gate(self):
+        workflow = (ROOT / ".github/workflows/android.yml").read_text()
+        configure = (ROOT / "tests/configure_android.gd").read_text()
+        self.assertIn("pull_request:", workflow)
+        self.assertIn("tests/verify_apk.py", workflow)
+        self.assertIn("tests/android_smoke.py", workflow)
+        self.assertIn("settings.save()", configure)
+        self.assertTrue((ROOT / "tests/android_smoke.py").is_file())
+        self.assertTrue((ROOT / "tests/verify_apk.py").is_file())
+
 if __name__ == "__main__":
     unittest.main()
